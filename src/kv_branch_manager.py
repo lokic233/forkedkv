@@ -31,17 +31,24 @@ from vmm_pool import VMMPool, _ck
 
 
 class Branch:
-    __slots__ = ("branch_id", "va_base", "va_size", "num_pages",
+    __slots__ = ("branch_id", "va_base", "va_size", "num_pages", "capacity",
                  "page_phys", "page_va", "tokens_filled", "parent")
-    def __init__(self, branch_id, va_base, va_size, num_pages):
+    def __init__(self, branch_id, va_base, va_size, num_pages, capacity=None):
         self.branch_id = branch_id
         self.va_base = va_base
         self.va_size = va_size
+        # capacity = number of VA page slots reserved (headroom for dynamic growth).
+        # num_pages = number of slots currently considered "active" (mapped or to-be).
+        self.capacity = capacity if capacity is not None else num_pages
         self.num_pages = num_pages
-        self.page_phys = [None] * num_pages   # PhysPage per slot (None = unmapped)
-        self.page_va = [va_base + i * (va_size // num_pages) for i in range(num_pages)]
+        self.page_phys = [None] * self.capacity   # PhysPage per slot (None = unmapped)
+        self.page_va = [va_base + i * self.page_size_unit() for i in range(self.capacity)]
         self.tokens_filled = 0
         self.parent = None
+
+    def page_size_unit(self):
+        # all slots are page_size; va_size = capacity * page_size
+        return self.va_size // self.capacity
 
     def va_of(self, page_index):
         return self.page_va[page_index]
@@ -76,12 +83,37 @@ class KVBranchManager:
         self._next_snap_id = 0
 
     # ---- branch lifecycle ----
-    def create_branch(self, branch_id, num_pages):
+    def create_branch(self, branch_id, num_pages, headroom_pages=0):
+        """Create a branch. Reserves VA for (num_pages + headroom_pages) slots so the
+        branch can grow its tail dynamically via append_page() without re-reserving VA
+        (P0-C). VA reservation costs NO HBM; only mapped pages commit physical memory."""
         assert branch_id not in self.branches
-        va_base, va_size = self.pool.reserve_va(num_pages)
-        br = Branch(branch_id, va_base, va_size, num_pages)
+        capacity = num_pages + headroom_pages
+        va_base, va_size = self.pool.reserve_va_range(max(capacity, 1))
+        br = Branch(branch_id, va_base, va_size, num_pages, capacity=max(capacity, 1))
         self.branches[branch_id] = br
         return br
+
+    def append_page(self, branch_id, fill_value=None):
+        """P0-C: grow a branch's KV tail by one fresh private page (real agents grow KV
+        as decode emits tokens). Maps the next unmapped slot inside the branch's reserved
+        VA headroom. Returns the new page_index. Raises if headroom is exhausted.
+        CoW semantics are preserved: appended pages are private (refcount 1), so a child
+        forked before the append never sees them; a child forked AFTER snapshotting the
+        grown branch aliases them."""
+        br = self.branches[branch_id]
+        idx = br.num_pages
+        if idx >= br.capacity:
+            raise RuntimeError(
+                f"branch {branch_id} VA headroom exhausted (capacity={br.capacity}); "
+                f"reserve more headroom_pages at create/fork time")
+        pg = self.pool.create_phys_page()
+        self.pool.map_page(br.va_of(idx), pg)
+        br.page_phys[idx] = pg
+        if fill_value is not None:
+            self.pool.memset_page(br.va_of(idx), fill_value)
+        br.num_pages += 1
+        return idx
 
     def alloc_page(self, branch_id, page_index, fill_value=None):
         """Allocate a fresh private physical page and map it into the branch."""
@@ -113,15 +145,16 @@ class KVBranchManager:
         return snap
 
     # ---- Fork ----
-    def fork(self, snapshot, new_branch_id):
+    def fork(self, snapshot, new_branch_id, headroom_pages=0):
         t0 = time.perf_counter()
         n = snapshot.num_pages
-        br = self.create_branch(new_branch_id, max(n, 1))
+        br = self.create_branch(new_branch_id, max(n, 1), headroom_pages=headroom_pages)
         for i in range(n):
             pg = snapshot.page_phys[i]
             self.pool.map_page(br.va_of(i), pg)   # alias same physical handle
             self.pool.incref(pg)
             br.page_phys[i] = pg
+        br.num_pages = n if n > 0 else 1
         br.tokens_filled = snapshot.tokens_filled
         br.parent = snapshot.branch_id
         self.pool.synchronize()

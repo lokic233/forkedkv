@@ -28,8 +28,8 @@ from explog import log
 HEADS, HEAD_DIM = 32, 128       # ~Qwen2.5-7B-ish single layer K/V shape
 DTYPE = torch.float16
 SEQLENS = [512, 1024, 2048, 4096, 8192]
-REPS = 30
-WARMUP = 10
+REPS = 50
+WARMUP = 50   # B2: was 10; clock-drift artifact at 8192 needs longer warmup
 OUT = os.path.join(os.path.dirname(__file__), "..", "data", "metric3_attn_overhead.csv")
 
 
@@ -102,21 +102,55 @@ def _bench_sdpa(Q, K, V):
     return times
 
 
+def _bench_sdpa_interleaved(Qc, Kc, Vc, Qv, Kv, Vv):
+    """B2: measure contiguous and VMM-paged SDPA INTERLEAVED within each rep so any
+    GPU clock drift (boost ramp / thermal) affects both methods equally and cancels in
+    the ratio. Returns (contig_times, vmm_times)."""
+    import torch.nn.functional as F
+    for _ in range(WARMUP):
+        F.scaled_dot_product_attention(Qc, Kc, Vc)
+        F.scaled_dot_product_attention(Qv, Kv, Vv)
+    torch.cuda.synchronize()
+    ct, vt = [], []
+    for _ in range(REPS):
+        s = torch.cuda.Event(enable_timing=True); e = torch.cuda.Event(enable_timing=True)
+        s.record(); F.scaled_dot_product_attention(Qc, Kc, Vc); e.record(); torch.cuda.synchronize()
+        ct.append(s.elapsed_time(e))
+        s = torch.cuda.Event(enable_timing=True); e = torch.cuda.Event(enable_timing=True)
+        s.record(); F.scaled_dot_product_attention(Qv, Kv, Vv); e.record(); torch.cuda.synchronize()
+        vt.append(s.elapsed_time(e))
+    return ct, vt
+
+
 def main():
     rows = []
+    print(f"WARMUP={WARMUP} REPS={REPS} (interleaved contig/vmm per rep -> clock drift cancels)")
     for sl in SEQLENS:
-        c = run_method_contig(sl)
-        v = run_method_vmm(sl)
-        cm, vm = statistics.mean(c), statistics.mean(v)
+        # build BOTH tensor sets, then interleave timing
+        pool = VMMPool(device_id=0)
+        numel = HEADS * sl * HEAD_DIM; nbytes = numel * 2
+        vak, *_ = make_vmm_tensor(pool, nbytes); vav, *_ = make_vmm_tensor(pool, nbytes)
+        Kv = tensor_from_va(vak, numel, DTYPE, (1, HEADS, sl, HEAD_DIM))
+        Vv = tensor_from_va(vav, numel, DTYPE, (1, HEADS, sl, HEAD_DIM))
+        Kv.normal_(); Vv.normal_()
+        Qv = torch.randn(1, HEADS, sl, HEAD_DIM, dtype=DTYPE, device='cuda')
+        Qc = torch.randn(1, HEADS, sl, HEAD_DIM, dtype=DTYPE, device='cuda')
+        Kc = torch.randn(1, HEADS, sl, HEAD_DIM, dtype=DTYPE, device='cuda')
+        Vc = torch.randn(1, HEADS, sl, HEAD_DIM, dtype=DTYPE, device='cuda')
+        c, v = _bench_sdpa_interleaved(Qc, Kc, Vc, Qv, Kv, Vv)
+        # use MEDIAN (robust to the occasional boost-clock outlier) for the headline ratio
+        cm, vm = statistics.median(c), statistics.median(v)
         ovh = 100*(vm/cm - 1)
         for r,(a,b) in enumerate(zip(c, v)):
             rows.append((sl, "contiguous", r, a))
             rows.append((sl, "vmm_paged", r, b))
-        print(f"seqlen={sl:5d}  contig={cm:7.4f}ms (sd {statistics.pstdev(c):.4f})  "
-              f"vmm={vm:7.4f}ms (sd {statistics.pstdev(v):.4f})  overhead={ovh:+5.1f}%")
-        log("metric3_attn_overhead", dict(seqlen=sl, heads=HEADS, head_dim=HEAD_DIM, reps=REPS, dtype="fp16"),
-            dict(contig_ms_mean=cm, contig_ms_sd=statistics.pstdev(c),
-                 vmm_ms_mean=vm, vmm_ms_sd=statistics.pstdev(v), overhead_pct=ovh))
+        print(f"seqlen={sl:5d}  contig_med={cm:7.4f}ms (sd {statistics.pstdev(c):.4f})  "
+              f"vmm_med={vm:7.4f}ms (sd {statistics.pstdev(v):.4f})  overhead={ovh:+5.1f}%")
+        log("metric3_attn_overhead", dict(seqlen=sl, heads=HEADS, head_dim=HEAD_DIM, reps=REPS, warmup=WARMUP,
+                dtype="fp16", method="interleaved", stat="median"),
+            dict(contig_ms_median=cm, contig_ms_sd=statistics.pstdev(c),
+                 vmm_ms_median=vm, vmm_ms_sd=statistics.pstdev(v), overhead_pct=ovh))
+        del Kv, Vv, Qv, Qc, Kc, Vc; pool.destroy(); torch.cuda.empty_cache()
     with open(OUT,"w",newline="") as f:
         w=csv.writer(f); w.writerow(["seqlen","method","rep","ms"]); w.writerows(rows)
     print("wrote", OUT)

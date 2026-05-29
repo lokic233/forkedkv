@@ -103,6 +103,15 @@ class VMMPool:
         va = _ck(cuda.cuMemAddressReserve(size, 0, 0, 0))
         return int(va), size
 
+    def reserve_va_range(self, num_pages, fixed_addr=0):
+        """Reserve a VA range, optionally at a fixed address hint (for contiguous
+        extension). Returns (va, size). VA reservation consumes NO physical HBM; only
+        cuMemMap of a page commits HBM. This lets a branch reserve generous VA headroom
+        upfront and grow its mapped region lazily as decode proceeds (P0-C dynamic VA)."""
+        size = num_pages * self.page_size
+        va = _ck(cuda.cuMemAddressReserve(size, 0, fixed_addr, 0))
+        return int(va), size
+
     def free_va(self, va, size):
         _ck(cuda.cuMemAddressFree(va, size))
 

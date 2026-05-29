@@ -13,7 +13,7 @@ from kv_branch_manager import KVBranchManager
 from baseline_fullclone import FullCloneManager
 from explog import log
 
-PREFIX_PAGES = 32
+PREFIX_PAGES = 40  # B3: chosen so 5/10/25/50/100% are exact integer page counts
 FANOUT = 16
 DIVERGENCE = [0.0, 0.05, 0.10, 0.25, 0.50, 1.0]
 OUT = os.path.join(os.path.dirname(__file__), "..", "data", "metric2b_divergence.csv")
@@ -26,8 +26,9 @@ def run_cow(frac):
     npages_write = int(round(frac * PREFIX_PAGES))
     for i in range(FANOUT):
         m.fork(snap, f"c{i}")
-        for p in range(npages_write):
-            m.write_page(f"c{i}", p, fill_value=i % 251 + 1)  # triggers CoW
+        # P0-D: real agent branches diverge at the TAIL, not the prefix head.
+        for p in range(PREFIX_PAGES - npages_write, PREFIX_PAGES):
+            m.write_page(f"c{i}", p, fill_value=i % 251 + 1)  # triggers CoW at tail
     written = (m.pool.stat_bytes_created - bc) + (m.pool.stat_bytes_copied - bk)
     return written
 
@@ -46,14 +47,15 @@ def main():
     for frac in DIVERGENCE:
         cb = run_cow(frac); bb = run_clone(frac)
         red = 100*(1 - cb/bb)
-        rows.append((frac, FANOUT, PREFIX_PAGES, "cow_fork", cb, red))
-        rows.append((frac, FANOUT, PREFIX_PAGES, "full_clone", bb, 0.0))
+        eff = 100.0 * int(round(frac * PREFIX_PAGES)) / PREFIX_PAGES
+        rows.append((frac, eff, FANOUT, PREFIX_PAGES, "cow_fork", cb, red))
+        rows.append((frac, eff, FANOUT, PREFIX_PAGES, "full_clone", bb, 0.0))
         print(f"divergence={frac*100:5.1f}%  cow_written={cb/2**20:8.1f}MiB  "
               f"clone_written={bb/2**20:8.1f}MiB  reduction={red:5.1f}%")
         log("metric2b_divergence", dict(divergence_frac=frac, fanout=FANOUT, prefix_pages=PREFIX_PAGES),
             dict(cow_bytes_written=cb, clone_bytes_written=bb, reduction_pct=red))
     with open(OUT,"w",newline="") as f:
-        w=csv.writer(f); w.writerow(["divergence_frac","fanout","prefix_pages","method","bytes_written","reduction_pct"])
+        w=csv.writer(f); w.writerow(["divergence_frac","effective_divergence_pct","fanout","prefix_pages","method","bytes_written","reduction_pct"])
         w.writerows(rows)
     print("wrote", OUT)
 

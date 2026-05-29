@@ -21,6 +21,15 @@ sys.path.insert(0, os.path.dirname(__file__))
 from kv_branch_manager import KVBranchManager
 
 
+def stable_byte(s) -> int:
+    """Process-stable hash of a string -> a KV payload byte in [1, 251].
+    Python's builtin hash() is salted per-process (PYTHONHASHSEED), so two runs /
+    two processes produce different bytes for the same tool_result, breaking replay
+    determinism (committee bug B4). blake2b is deterministic across processes."""
+    h = hashlib.blake2b(str(s).encode("utf-8"), digest_size=8).digest()
+    return (int.from_bytes(h, "big") % 251) + 1
+
+
 class Step:
     __slots__ = ("idx", "domain", "page_index", "rng_seed", "tool_result", "payload_byte")
     def __init__(self, idx, domain, page_index, rng_seed=None, tool_result=None, payload_byte=0):
@@ -68,14 +77,14 @@ class ReplayEngine:
             if "rng_seed" in mod:
                 return (mod["rng_seed"] * 31 + step.idx) % 251 + 1
             if "tool_result" in mod:
-                return (hash(mod["tool_result"]) % 251) + 1
+                return stable_byte(mod["tool_result"])
             if "payload_byte" in mod:
                 return mod["payload_byte"]
         # deterministic default
         if step.domain == "RNG" and step.rng_seed is not None:
             return (step.rng_seed * 31 + step.idx) % 251 + 1
         if step.domain == "TOOL" and step.tool_result is not None:
-            return (hash(step.tool_result) % 251) + 1
+            return stable_byte(step.tool_result)
         return step.payload_byte % 251
 
     def replay(self, traj: Trajectory, original_branch, snapshot, new_branch_id, modifiers=None):
