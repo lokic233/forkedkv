@@ -1,0 +1,13 @@
+fanout,prefix_pages,prefix_mib,method,bytes_written,live_phys_mib
+1,32,64,cow_fork,0,64.0
+1,32,64,full_clone,134217728,128.0
+2,32,64,cow_fork,0,64.0
+2,32,64,full_clone,268435456,192.0
+4,32,64,cow_fork,0,64.0
+4,32,64,full_clone,536870912,320.0
+8,32,64,cow_fork,0,64.0
+8,32,64,full_clone,1073741824,576.0
+16,32,64,cow_fork,0,64.0
+16,32,64,full_clone,2147483648,1088.0
+32,32,64,cow_fork,0,64.0
+32,32,64,full_clone,4294967296,2112.0

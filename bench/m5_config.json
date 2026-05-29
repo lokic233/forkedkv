@@ -1,0 +1,14 @@
+{
+  "n_layers": 32,
+  "n_kv_heads": 8,
+  "head_dim": 128,
+  "dt_bytes": 2,
+  "kv_factor_kv": 2,
+  "chars_per_token": 4,
+  "sys_prompt_tokens": 800,
+  "repo_context_tokens": 6000,
+  "fanout": 8,
+  "divergence_frac": 0.1,
+  "page_size": 2097152,
+  "kv_bytes_per_token": 131072
+}

@@ -131,3 +131,12 @@ class VMMPool:
 
     def synchronize(self):
         _ck(cuda.cuCtxSynchronize())
+
+    def destroy(self):
+        """Release every live physical handle. Call before discarding a pool to free HBM."""
+        for pg in list(self.pages.values()):
+            try:
+                _ck(cuda.cuMemRelease(pg.handle))
+            except Exception:
+                pass
+        self.pages.clear()

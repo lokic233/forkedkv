@@ -1,0 +1,13 @@
+divergence_frac,fanout,prefix_pages,method,bytes_written,reduction_pct
+0.0,16,32,cow_fork,0,100.0
+0.0,16,32,full_clone,2147483648,0.0
+0.05,16,32,cow_fork,134217728,93.75
+0.05,16,32,full_clone,2147483648,0.0
+0.1,16,32,cow_fork,201326592,90.625
+0.1,16,32,full_clone,2147483648,0.0
+0.25,16,32,cow_fork,536870912,75.0
+0.25,16,32,full_clone,2147483648,0.0
+0.5,16,32,cow_fork,1073741824,50.0
+0.5,16,32,full_clone,2147483648,0.0
+1.0,16,32,cow_fork,2147483648,0.0
+1.0,16,32,full_clone,2147483648,0.0
