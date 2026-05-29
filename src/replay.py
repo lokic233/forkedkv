@@ -83,11 +83,15 @@ class ReplayEngine:
         Returns (fork_handle, diverged_pages, first_divergent_step)."""
         fh = self.mgr.fork(snapshot, new_branch_id)
         first_div_step = None
+        # Content-addressed CoW: only WRITE pages whose replayed value differs from the
+        # original. Identical replays touch nothing -> zero CoW copies, alias preserved.
+        # This makes the divergence detector report true value divergence, not "any write".
         for s in traj.steps:
             b = self._effective_byte(s, modifiers)
             orig_b = self._effective_byte(s, None)
-            self.mgr.write_page(new_branch_id, s.page_index, fill_value=b)
-            if first_div_step is None and b != orig_b:
-                first_div_step = s.idx
+            if b != orig_b:
+                self.mgr.write_page(new_branch_id, s.page_index, fill_value=b)
+                if first_div_step is None:
+                    first_div_step = s.idx
         diverged = self.mgr.diverged_pages(original_branch, new_branch_id)
         return fh, diverged, first_div_step

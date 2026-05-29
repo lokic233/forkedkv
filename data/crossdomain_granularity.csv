@@ -1,0 +1,7 @@
+domain,scheme,bytes_copied,source
+KV,uniform_2MiB,201326592,GPU-measured
+KV,per_domain,201326592,GPU-measured
+RNG,uniform_2MiB,33554432,host-simulated
+RNG,per_domain,512,host-simulated
+TOOL,uniform_2MiB,33554432,host-simulated
+TOOL,per_domain,65536,host-simulated
