@@ -151,3 +151,46 @@ Three components change:
 
 ### Total estimate: ~10-14 engineering days for a working vLLM fork prototype (Option A).
 This is the v0.3 / camera-ready target. R1 ships the standalone mechanism + this sketch.
+
+---
+
+## R2 revision decisions (committed early — round 2)
+
+R1 returned 3 strong YELLOW + 1 GREEN (ASPLOS ~35-45% median, one reviewer 65-75%).
+R2 targets 4-of-4 GREEN. Decisions made up front:
+
+- **R2-D1 (multi-layer decode, P0-1): N=4 layers, FULL transformer block per layer.**
+  Per brief recommendation N=4. We run the full Qwen2.5-7B block (input_layernorm →
+  attention with per-layer GQA KV → residual → post_attention_layernorm → SwiGLU MLP →
+  residual) for layers 0..3, then final norm + tied lm_head. Each layer keeps its OWN
+  per-branch K/V CoW pages (one BranchKV per layer). Rationale: 4 real layers give a
+  non-degenerate token sequence (real residual+MLP signal), proving the mechanism
+  composes and isn't a single-layer toy. We chose full-block over attention-only because
+  the reviewers' C1 ("single layer is a toy") is best answered by real language-modeling
+  flow, and MLP is cheap relative to the systems question.
+- **R2-D2 (VA pooling, P0-2): process-wide free-list keyed by size_in_pages.**
+  On branch/snapshot destroy, return the reserved VA range to a free-list in VMMPool
+  keyed by num_pages. New reservations prefer reuse from the pool (cuMemAddressFree is
+  deferred; the VA stays reserved and is re-handed-out). Physical handles still freed at
+  refcount 0 (unchanged). Re-run Metric 4 to measure the new ceiling. Add per-call-site
+  error annotation so the OOM is forensic (which exact cuMem* call fails).
+- **R2-D3 (scratch-VA pool, B8): pool size 8 reusable scratch VA pages.**
+  KVBranchManager pre-reserves 8 one-page scratch VA ranges at init; _cow borrows one,
+  maps the new handle, D2D-copies, unmaps, returns it to the pool — eliminating the
+  reserve/free pair per CoW (the 47% scratch bookkeeping from B5). 8 supports 8
+  concurrent CoW ops; documented. Re-run B5 / Metric 1 / Metric 5b post-optimization.
+- **R2-D4 (unaligned prefix, B6): prefix_tokens chosen NON-page-aligned.**
+  R1 used 4096 tokens = exactly 2 pages (toks_per_page=4096 for GQA-4) so decode never
+  overwrote a shared page → 0 bytes copied was an artifact. R2 Metric 5b uses an
+  unaligned prefix so the first decode token lands in a PARTIALLY-FILLED shared prefix
+  page, forcing a real partial-page CoW. We report the partial-page CoW cost.
+- **R2-D5 (correctness, P0-3): hard assert across ALL branches, not branch-0 print.**
+  Metric 5b asserts decoded tokens bit-identical CoW-vs-clone for every branch, writes
+  per-branch checksums + first-mismatch index to CSV.
+- **R2-D6 (CoW-on-write stress, P0-4): new Metric 5c.** Deliberately overwrite a shared
+  prefix page mid-decode (tree-of-thought rollback / speculative edit), verify _cow
+  fires (refcount 2→1), exactly one page copied, parent uncorrupted, writer diverges.
+- **R2-D7 (which P1): land P1-A (SWE-bench N=7→24) AND P1-B (vLLM APC analytic).**
+  P1-A: pull 17 more SWE-Bench-Verified instances spanning the real size distribution
+  (median 1185 chars, max 24770) → N=24. P1-B: analytic comparison vs vLLM APC /
+  block-table prefix sharing in WRITEUP (analytic-only per brief recommendation).
