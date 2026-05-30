@@ -1,0 +1,1 @@
+T2: GREEN — Rescoped claim is now mechanically sound (E4b refutes interior, E4c proves terminal repair exact + 5-82x at full depth); E5 trace-frequency is legitimately scoped as future work since the runtime primitive itself is now correctly bounded.

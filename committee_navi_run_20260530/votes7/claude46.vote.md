@@ -1,0 +1,1 @@
+T2: **GREEN** — Rescoped mechanism is exact (E4c, argmax-match at full depth, 5–82× scaling with context), correctly excludes interior edits (E4b), and the terminal/append scope maps to the dominant agent-loop pattern; remaining real-trace frequency question (E5) is properly flagged as future work, not smuggled as a claim.

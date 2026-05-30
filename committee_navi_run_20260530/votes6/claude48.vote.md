@@ -1,0 +1,1 @@
+T2: RED — E4 proves correctness only at **layer 0**; for L>0 the suffix attends to the edited slot, so suffix K/V are NOT pointer-stable and recomputing only the W tokens is no longer exact. The "no suffix recompute" claim contradicts the workload (downstream reasoning consumes the tool result) — a core-mechanism correctness error, not scoped future-work.

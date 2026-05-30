@@ -70,3 +70,36 @@ Both require BUILDING, not arguing. The thesis framing now survives; what's left
   R5: "repair not implemented + real-trace incidence unknown" -> E4/E5 (build + census)
 Each experiment killed one objection and surfaced the next-deepest. T2 is now a defined build spec,
 not a framing dispute. Workload-model half: SETTLED. Runtime-primitive half: spec'd, not built.
+
+## ROUND 6 — re-vote on T2 after E4 (single-layer repair implementation)
+| T2 (post-E4) | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally |
+|--------------|-----|-----|-----|-------|------|--------|-------|
+|              | RED | GREEN | GREEN | RED | GREEN | GREEN | 4G/2R |
+KEY EVENT: Muse Park FLIPPED to GREEN (holdout satisfied by built+exact+18.8x repair). BUT
+claude48 + codex independently caught a REAL BUG: E4 proved equality only at LAYER 0; for an
+INTERIOR edit the suffix attends to the changed slot so suffix K/V change at L>0 -> pointer-stable
+reuse is NOT exact. The single-layer E4 masked it.
+
+## E4b — multi-layer test of the claude48/codex RED. CONFIRMED THE BUG.
+Interior edit: suffix max|dK| L1..L5 = 0.64,2.54,1.47,2.78,4.04 (diverges). Terminal edit: 0.0 at
+all layers. => E4's interior 18.8x was INVALID (skipped required suffix recompute). T2 repair
+rescoped to TERMINAL/APPEND edits only.
+
+## E4c — rescoped terminal repair, multi-layer, exact+timed. VALIDATED.
+argmax-exact at every S; 5.4x@2K -> 81.6x@16K vs full recompute. Correct + fast at full depth.
+
+## ROUND 7 — re-vote on CORRECTED + RESCOPED T2
+| T2 (R7) | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally | Status |
+|---------|-----|-----|-----|-------|------|--------|-------|--------|
+|         | YELLOW | GREEN | GREEN | GREEN | RED | GREEN | 4G/1Y/1R | YELLOW |
+codex FLIPPED to GREEN (its bug fixed). NEW SHARED OBJECTION (claude48 YELLOW + Muse Park RED):
+"Terminal/append repair == standard prefix-KV incremental prefill that vLLM/SGLang ALREADY do; the
+5-82x is vs a full-recompute STRAWMAN. Prove it beats a prefix-caching engine, else only the
+E2/E3 workload characterization survives as the contribution."
+
+CRITICAL SELF-ASSESSMENT: this objection is CORRECT and partly self-defeating for T2's primitive.
+Our OWN E3 measured E_append on live SGLang RadixAttention at 0.90-0.96x (FREE) — i.e. a
+prefix-caching engine ALREADY handles pure terminal append cheaply. So the terminal "repair" is
+NOT a novel primitive over RadixAttention. The honest consequence: T2's RUNTIME-PRIMITIVE half
+collapses to "what RadixAttention already does"; only the WORKLOAD-MODEL half (E2/E3 pathology +
+edit-cost taxonomy) is a defensible novel contribution.

@@ -1,0 +1,1 @@
+T2: GREEN — E4’s bit-exact correctness and O(1) repair latency definitively prove the mechanism's viability; incidence is a workload-characterization detail for the camera-ready, not a flaw in the architectural claim.

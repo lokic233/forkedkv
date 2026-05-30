@@ -1,0 +1,19 @@
+<frozen importlib._bootstrap_external>:1304: FutureWarning: The cuda.cuda module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.driver module instead.
+E4c TERMINAL repair (rescoped, exact): N=6 layers, W=64, Qwen2.5-7B
+| S | B recompute (ms) | C repair (ms) | C/B | speedup | argmax match |
+|---|---|---|---|---|---|
+| 2048 | 43.730 | 8.094 | 0.185 | 5.4x | True |
+| 4096 | 128.900 | 8.600 | 0.067 | 15.0x | True |
+| 8192 | 436.558 | 12.082 | 0.028 | 36.1x | True |
+| 16384 | 1533.252 | 18.793 | 0.012 | 81.6x | True |
+Traceback (most recent call last):
+  File "/home/dengcchi/research-committee-lab/forkedkv/bench_e4c_terminal.py", line 103, in <module>
+    cache,_=layers_prefill(prefix)  # cache prefix K/V (the "still-mapped pages")
+            ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dengcchi/branchable_replay/.venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dengcchi/research-committee-lab/forkedkv/bench_e4c_terminal.py", line 52, in layers_prefill
+    o=torch.nn.functional.scaled_dot_product_attention(Qf,Kf,Vf,is_causal=True).permute(1,0,2).reshape(T,m.n_q*m.hd)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 112.00 GiB. GPU 0 has a total capacity of 95.07 GiB of which 80.03 GiB is free. Including non-PyTorch memory, this process has 15.03 GiB memory in use. Of the allocated memory 11.23 GiB is allocated by PyTorch, and 3.14 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

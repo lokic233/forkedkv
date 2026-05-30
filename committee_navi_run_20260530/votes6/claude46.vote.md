@@ -1,0 +1,1 @@
+T2: **GREEN** — E4 closes the loop: mechanism proven (E2-E3), repair built, exact, and scaling as predicted (18.8x@32K). Real-trace incidence is a coverage question for the evaluation section, not a threat to the architectural claim or the primitive's correctness.
