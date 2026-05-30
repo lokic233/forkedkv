@@ -74,13 +74,42 @@ class ForkHandle:
 
 
 class KVBranchManager:
-    def __init__(self, device_id=0, page_size=None, max_pages_per_branch=4096):
+    def __init__(self, device_id=0, page_size=None, max_pages_per_branch=4096,
+                 scratch_pool_size=8):
         self.pool = VMMPool(device_id=device_id, page_size=page_size)
         self.page_size = self.pool.page_size
         self.max_pages_per_branch = max_pages_per_branch
         self.branches = {}
         self.snapshots = {}
         self._next_snap_id = 0
+        # B8 / R2-D3: pre-reserve a pool of reusable 1-page scratch VA windows. _cow()
+        # borrows one to stage the private copy instead of reserve+free'ing a fresh VA
+        # range every time. This removes the scratch-VA bookkeeping that B5 measured as
+        # ~47% of CoW latency (175.7us -> the reserve/free pair is amortized away).
+        self.scratch_pool_size = scratch_pool_size
+        self._scratch_free = []   # list of (va, size) one-page windows, unmapped & idle
+        for _ in range(scratch_pool_size):
+            va, size = self.pool.reserve_va(1)
+            self._scratch_free.append((va, size))
+        self.stat_scratch_exhausted = 0  # times the pool was empty and we fell back
+
+    def _borrow_scratch(self):
+        if self._scratch_free:
+            return self._scratch_free.pop(), True
+        # pool exhausted (more concurrent CoW than scratch_pool_size): fall back to a
+        # fresh reserve (the old path) so correctness never depends on pool size.
+        self.stat_scratch_exhausted += 1
+        return self.pool.reserve_va(1), False
+
+    def _return_scratch(self, slot, from_pool):
+        if from_pool and len(self._scratch_free) < self.scratch_pool_size:
+            self._scratch_free.append(slot)
+        else:
+            va, size = slot
+            # not a pooled slot (fallback) -> genuinely release it
+            self.pool.va_pool_enabled = False
+            self.pool.free_va(va, size)
+            self.pool.va_pool_enabled = True
 
     # ---- branch lifecycle ----
     def create_branch(self, branch_id, num_pages, headroom_pages=0):
@@ -161,6 +190,21 @@ class KVBranchManager:
         dt = time.perf_counter() - t0
         return ForkHandle(new_branch_id, snapshot.snapshot_id, dt, n)
 
+    def destroy_branch(self, branch_id):
+        """Tear down a branch: unmap every mapped page (decref its physical handle, freeing
+        HBM at refcount 0), then return the branch's VA reservation to the process-wide VA
+        free-list (P0-2) so a later fork of the SAME size reuses it instead of issuing a
+        fresh cuMemAddressReserve. This is what turns Metric 4's mapping-metadata ceiling
+        into the true data ceiling."""
+        br = self.branches.pop(branch_id)
+        for i in range(br.capacity):
+            pg = br.page_phys[i]
+            if pg is not None:
+                self.pool.unmap_page(br.va_of(i))
+                self.pool.decref(pg)
+                br.page_phys[i] = None
+        self.pool.free_va(br.va_base, br.va_size, num_pages=br.capacity)
+
     # ---- CoW write (software page-fault-on-write) ----
     def write_page(self, branch_id, page_index, host_bytes=None, fill_value=None):
         """Write to a page. If the page is shared (refcount>1) perform CoW first.
@@ -181,16 +225,19 @@ class KVBranchManager:
         return did_cow
 
     def _cow(self, br, page_index, shared_pg):
-        """Allocate private page, copy contents, remap one VA page, decref shared."""
+        """Allocate private page, copy contents, remap one VA page, decref shared.
+        B8 / R2-D3: stages the copy through a REUSABLE scratch VA window borrowed from a
+        pre-reserved pool, eliminating the per-CoW cuMemAddressReserve+cuMemAddressFree
+        pair that B5 measured as ~47% of CoW latency."""
         va = br.va_of(page_index)
         new_pg = self.pool.create_phys_page()
         new_pg.born_from = shared_pg.page_id
-        # copy old contents into the new physical page via a temporary VA window
-        tmp_va, tmp_size = self.pool.reserve_va(1)
+        # copy old contents into the new physical page via a reusable scratch VA window
+        (tmp_va, tmp_size), from_pool = self._borrow_scratch()
         self.pool.map_page(tmp_va, new_pg)
         self.pool.copy_page(tmp_va, va)              # D2D copy of 2 MiB
-        self.pool.unmap_page(tmp_va)
-        self.pool.free_va(tmp_va, tmp_size)
+        self.pool.unmap_page(tmp_va)                 # leave VA reserved & idle for reuse
+        self._return_scratch((tmp_va, tmp_size), from_pool)
         # remap the branch's VA page to the private copy
         self.pool.unmap_page(va)
         self.pool.map_page(va, new_pg)
