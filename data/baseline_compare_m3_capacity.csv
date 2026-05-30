@@ -1,7 +1,7 @@
 method,prefix_blocks,branches,wall_s,extra_bytes_rss,note
-software,32,10,3.1678006052970886e-05,0,host RAM (block_table refcounts)
-software,32,100,0.0002813851460814476,0,host RAM (block_table refcounts)
-software,32,1000,0.0030050091445446014,0,host RAM (block_table refcounts)
-software,32,10000,0.03249878901988268,3145728,host RAM (block_table refcounts)
-software,32,100000,0.35438189189881086,40894464,host RAM (block_table refcounts)
+software,32,10,3.078673034906387e-05,0,host RAM (block_table refcounts)
+software,32,100,0.00026921695098280907,0,host RAM (block_table refcounts)
+software,32,1000,0.002979299984872341,0,host RAM (block_table refcounts)
+software,32,10000,0.033012475818395615,3145728,host RAM (block_table refcounts)
+software,32,100000,0.3532056831754744,40894464,host RAM (block_table refcounts)
 hardware_vmm,32,16250,,,driver mapping ceiling (Lab 1: K~520K / prefix_pages)
