@@ -1,0 +1,3 @@
+regime,n_branches,prefix_tokens,decode_tokens,total_tokens,wall_s,tokens_per_s,peak_live_mib,kv_bytes_copied,peak_live_per_branch_mib
+cow_fork,16,4096,128,2048,3.0064308047294617,681.2064314862196,72.0,0,4.5
+full_clone,16,4096,128,2048,3.0101110776886344,680.3735633478988,200.0,134217728,12.5

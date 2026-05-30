@@ -17,7 +17,8 @@ from explog import log
 
 # prefix sized so a single branch is ~12 GiB -> full clone OOMs after a handful.
 PREFIX_PAGES = 6144            # 6144 * 2MiB = 12 GiB prefix
-MAX_BRANCHES = 64  # CoW target: >>6
+MAX_BRANCHES_CLONE = 64      # clone OOMs long before this
+MAX_BRANCHES_COW = 4096      # P1-A: sweep CoW until it actually OOMs (VA / handle / HBM)
 OUT = os.path.join(os.path.dirname(__file__), "..", "data", "metric4_capacity.csv")
 
 def is_oom(e):
@@ -31,7 +32,7 @@ def cow_capacity():
     n = 0
     oom = False
     try:
-        for i in range(MAX_BRANCHES):
+        for i in range(MAX_BRANCHES_COW):
             m.fork(snap, f"c{i}")   # zero-copy alias
             n += 1
     except RuntimeError as e:
@@ -46,7 +47,7 @@ def clone_capacity():
     n = 0
     oom = False
     try:
-        for i in range(MAX_BRANCHES):
+        for i in range(MAX_BRANCHES_CLONE):
             m.clone("p", f"c{i}")   # full 12 GiB copy each
             n += 1
     except RuntimeError as e:
@@ -58,13 +59,13 @@ def clone_capacity():
 def _phase_clone():
     cn, coom, clive = clone_capacity()
     print(f"RESULT clone {cn} {coom} {clive:.2f}")
-    log("metric4_capacity", dict(prefix_gib=PREFIX_PAGES*2/1024, max_branches=MAX_BRANCHES),
+    log("metric4_capacity", dict(prefix_gib=PREFIX_PAGES*2/1024, max_branches_clone=MAX_BRANCHES_CLONE, max_branches_cow=MAX_BRANCHES_COW),
         dict(method="full_clone", branches_succeeded=cn, oom=coom, live_gib=clive))
 
 def _phase_cow():
     fn, foom, flive = cow_capacity()
     print(f"RESULT cow {fn} {foom} {flive:.2f}")
-    log("metric4_capacity", dict(prefix_gib=PREFIX_PAGES*2/1024, max_branches=MAX_BRANCHES),
+    log("metric4_capacity", dict(prefix_gib=PREFIX_PAGES*2/1024, max_branches_clone=MAX_BRANCHES_CLONE, max_branches_cow=MAX_BRANCHES_COW),
         dict(method="cow_fork", branches_succeeded=fn, oom=foom, live_gib=flive))
 
 def main():
@@ -72,7 +73,7 @@ def main():
     gib = PREFIX_PAGES * 2 / 1024
     here = os.path.abspath(__file__)
     py = sys.executable
-    print(f"prefix = {PREFIX_PAGES} pages = {gib:.1f} GiB per branch; cap MAX_BRANCHES={MAX_BRANCHES}")
+    print(f"prefix = {PREFIX_PAGES} pages = {gib:.1f} GiB per branch; clone cap={MAX_BRANCHES_CLONE} cow cap={MAX_BRANCHES_COW} (sweep to OOM)")
     out = {}
     for phase in ("clone", "cow"):
         r = subprocess.run([py, here, phase], capture_output=True, text=True)
