@@ -204,20 +204,31 @@ class QwenLayerN:
         self.theta = self.cfg.get("rope_theta", 1e6)
         self.eps = self.cfg.get("rms_norm_eps", 1e-6)
         self.dtype = dtype; self.device = device
-        shard = os.path.join(snap, "model-00001-of-00004.safetensors")
-        norm_shard = os.path.join(snap, "model-00004-of-00004.safetensors")
+        # P0-1 (R3): full-depth support. The 28 layers of Qwen2.5-7B span all 4 shards
+        # (layers 0-6 in shard1, 7-13 shard2, 14-21 shard3, 22-27 shard4). Use the
+        # official weight_map to load EACH wanted tensor from whichever shard holds it,
+        # so num_layers can be ANY value up to 28 (not just the 7 in shard1). embed lives
+        # in shard1, model.norm in shard4.
         want_layers = set(range(num_layers))
+        idx = json.load(open(os.path.join(snap, "model.safetensors.index.json")))
+        weight_map = idx["weight_map"]
+        # group the tensors we need by shard so each shard is opened once
+        need = {}   # key -> shard filename
+        need["model.embed_tokens.weight"] = weight_map["model.embed_tokens.weight"]
+        need["model.norm.weight"] = weight_map["model.norm.weight"]
+        for key, shard_fn in weight_map.items():
+            if key.startswith("model.layers."):
+                li = int(key.split(".")[2])
+                if li in want_layers:
+                    need[key] = shard_fn
+        by_shard = {}
+        for key, shard_fn in need.items():
+            by_shard.setdefault(shard_fn, []).append(key)
         w = {}
-        with safe_open(shard, framework="pt", device=device) as f:
-            for k in f.keys():
-                if k == "model.embed_tokens.weight":
-                    w[k] = f.get_tensor(k).to(dtype)
-                elif k.startswith("model.layers."):
-                    li = int(k.split(".")[2])
-                    if li in want_layers:
-                        w[k] = f.get_tensor(k).to(dtype)
-        with safe_open(norm_shard, framework="pt", device=device) as f:
-            w["model.norm.weight"] = f.get_tensor("model.norm.weight").to(dtype)
+        for shard_fn, keys in by_shard.items():
+            with safe_open(os.path.join(snap, shard_fn), framework="pt", device=device) as f:
+                for key in keys:
+                    w[key] = f.get_tensor(key).to(dtype)
         self.embed = w["model.embed_tokens.weight"]
         self.norm_f = w["model.norm.weight"]
         self.L = []   # per-layer weight dict

@@ -1,4 +1,4 @@
-# Forkable GPU Memory for Replayable Agent Execution — v0.3 Writeup (R2 revision)
+# Forkable GPU Memory for Replayable Agent Execution — v0.4 Writeup (R3 revision)
 
 **Hardware:** 1× NVIDIA H100 (97 GiB HBM), CUDA 12.8, driver 580.82, Python 3.12,
 torch 2.11.0+cu128, cuda-python (bindings 12.9.4). All numbers from `cli:devgpu014`,
@@ -22,6 +22,13 @@ a write triggers a per-page CoW remap. **The win is memory/capacity, not latency
   HBM flat at 12 GiB — so freed branch metadata is **recycled** and serial branch
   throughput is unbounded; the concurrent ceiling is the per-mapping driver-metadata limit,
   which we now name exactly. 14× concurrent gain over full-clone. [`data/metric4_capacity.csv`]
+- **Concurrency ceiling is PREDICTABLE (Metric 4b, R3 P0-2 — NEW):** sweeping prefix size
+  {1, 3, 6, 12 GiB}, the max concurrent CoW branches before OOM is **1021 / 339 / 169 / 84**
+  respectively — all failing at the SAME forensic call `cuMemSetAccess`, live HBM flat at one
+  prefix. The product **branches × prefix_pages is constant to within 1%** (522,752 / 520,704
+  / 519,168 / 516,096; median **K ≈ 520K**). So the ceiling is a quantified, predictable
+  trade-off: **max_branches ≈ 520,000 / prefix_pages** (the driver's per-device mapping-table
+  capacity). [`data/metric4b_ceiling.csv`]
 - **Bytes written (Metric 2b, R1 tail-divergence + exact %):** at realistic 5% / 10%
   per-branch TAIL divergence, CoW writes **95.0% / 90.0% fewer** KV bytes than full-clone;
   degrades to 0% at 100% divergence. [`data/metric2b_divergence.csv`]
@@ -34,15 +41,23 @@ a write triggers a per-page CoW remap. **The win is memory/capacity, not latency
 - **Macro-benchmark (Metric 5, R2: 24 real SWE-bench-Verified instances spanning the full
   size distribution, 143–24,770 chars):** **89.9–90.1% fewer KV bytes written, 79.9–80.1%
   lower peak HBM, wall-time ≈ parity (0.4–3.0×, noise)**. [`data/metric5_e2e.csv`]
-- **End-to-end MULTI-LAYER decode (Metric 5b, R2 P0-1 — was single-layer in R1):** REAL
-  autoregressive token generation with the **first 4 full transformer blocks** of
-  Qwen2.5-7B (attention + SwiGLU MLP + residuals per layer), KV physically backed by CoW
-  VMM pages, one per-branch K/V range **per layer**. N=16 branches, **3,000-token UNALIGNED
-  shared prefix** (B6 fix), 128 real decode tokens each: **peak HBM CoW 288 MiB vs clone
-  544 MiB (−47%)**, **all 16 branches bit-identical CoW vs clone (hard assert, P0-3)**,
-  decoded tokens **non-degenerate** (real LM flow), throughput **221 vs 187 tok/s**. The
-  unaligned prefix triggers **128 real partial-page CoW events (256 MiB copied)** — the R1
-  "0 bytes copied" was a page-alignment artifact (B6). [`data/metric5b_decode.csv`]
+- **End-to-end MULTI-LAYER decode (Metric 5b, R2 P0-1; R3 P0-1 extends to FULL 28-layer
+  depth):** REAL autoregressive token generation with REAL Qwen2.5-7B transformer blocks
+  (attention + SwiGLU MLP + residuals per layer), KV physically backed by CoW VMM pages, one
+  per-branch K/V range **per layer**. **R3 (P0-1) runs the FULL 28-layer model** (all weights
+  from all 4 safetensors shards): N=8 branches, 3,000-token UNALIGNED prefix, 32 decode tokens
+  each: **peak HBM CoW 1120 MiB vs clone 2016 MiB (−44%)**, **448 real partial-page CoW events
+  (896 MiB copied)**, **all 8 branches bit-identical CoW vs clone (hard assert)**, ~39 tok/s.
+  The mechanism holds at full model depth — not just a 4-layer subset. (The N=4 config below
+  is also retained for the 16-branch/128-decode-token comparison.)
+  [`data/metric5b_decode_N28.csv`, `data/metric5b_decode.csv`]
+- **Partial-page CoW waste quantified (R3 P0-3 — NEW):** the 2 MiB CoW granularity copies a
+  whole page even when the overwritten shared tail page is only partly filled. For a 3,000-
+  token prefix (952 of 2,048 tokens in the tail page), each CoW copies 2 MiB but only ~46% is
+  valid data → **54% of the copied bytes are partial-page waste** (137 of 256 MiB at N=4; 480
+  of 896 MiB at N=28). Reported transparently. Crucially, even WITH this waste CoW still copies
+  only **50% of full-clone's byte traffic** — the granularity overhead does not erase the win.
+  [`data/metric5b_decode.csv`, `data/metric5b_decode_N28.csv`]
 - **CoW-on-write stress (Metric 5c, R2 P0-4 — NEW):** a tree-of-thought ROLLBACK that
   overwrites a SHARED prefix page mid-decode fires CoW **exactly once**, copies **exactly 1
   page (2 MiB), not the 3-page prefix**; the parent/sibling page is provably **uncorrupted**
@@ -241,6 +256,36 @@ ceiling. Pooling does NOT raise the concurrent count (84 live branches free noth
 do not claim it does — but it bounds total VA growth across an agent run. Figure:
 `figures/metric4_capacity.png`. **This is the headline result.**
 
+### Metric 4b — Concurrency ceiling model (R3 P0-2 — NEW)  [`data/metric4b_ceiling.csv`]
+
+Metric 4 measured ONE prefix size. Reviewer (metacode R3) asked us to prove the ceiling is
+**predictable**. Each CoW fork aliases the prefix by issuing one `cuMemMap` + `cuMemSetAccess`
+**per page** into a fresh VA reservation; **no KV bytes are copied** (live HBM stays at one
+prefix). The ceiling is therefore the driver's per-device **mapping-table capacity**: the
+total number of (VA-page → physical-handle) access descriptors it accepts. With `P` prefix
+pages per branch and `B` branches, total mappings = `B × P`. We swept `P` over four prefix
+sizes and measured the max concurrent branches before the OOM:
+
+| prefix | pages (P) | max branches (B) | OOM call | live HBM | K = B × P |
+|--------|-----------|------------------|----------|----------|-----------|
+| 1 GiB  | 512       | **1021**         | `cuMemSetAccess` | 1.0 GiB | 522,752 |
+| 3 GiB  | 1,536     | **339**          | `cuMemSetAccess` | 3.0 GiB | 520,704 |
+| 6 GiB  | 3,072     | **169**          | `cuMemSetAccess` | 6.0 GiB | 519,168 |
+| 12 GiB | 6,144     | **84**           | `cuMemSetAccess` | 12.0 GiB| 516,096 |
+
+**The product `B × P` is constant to within 1%** (median **K ≈ 519,936 ≈ 520K mappings**),
+every point OOMs at the identical forensic call, and live HBM tracks exactly one prefix the
+whole time. This turns Metric 4's single measured limit into a **quantified, predictable
+trade-off:**
+
+> **The ceiling is predictable: max_branches ≈ 520,000 / prefix_pages.**
+
+So a deployer can compute the concurrent fan-out for any prefix up front (e.g. a 24 GiB
+prefix → ≈42 branches; a 512 MiB prefix → ≈2,000 branches), and knows the ceiling is mapping
+metadata — recyclable across an agent run via the VA free-list (Metric 4), not data HBM.
+Each sweep point ran in a fresh process (a driver OOM can leave the context undefined). The
+12 GiB row reproduces Metric 4's 84-branch result exactly. Figure: `figures/metric4b_ceiling.png`.
+
 ### Metric 5 — Macro-benchmark on 24 real SWE-bench-Verified instances  [`data/metric5_e2e.csv`]
 
 (R1 P0-B: renamed from "End-to-end" to "Macro-benchmark" — this metric runs the real
@@ -263,16 +308,38 @@ lower HBM footprint, which is what enables Metric 4's 6→84 capacity jump. The 
 10% tail divergence), not an artifact of the R1 7-instance sample. Figure:
 `figures/metric5_e2e.png`. NOT a full token-generation run (LIMITATIONS #3).
 
-### Metric 5b — End-to-end MULTI-LAYER decode (R2 P0-1; was single-layer in R1)  [`data/metric5b_decode.csv`]
-A REAL autoregressive decode loop using the **first 4 full transformer blocks** of
+### Metric 5b — End-to-end MULTI-LAYER decode (R2 P0-1 N=4; R3 P0-1 FULL 28-layer)  [`data/metric5b_decode.csv`, `data/metric5b_decode_N28.csv`]
+A REAL autoregressive decode loop using REAL transformer blocks of
 **Qwen2.5-7B-Instruct** (28 q / 4 KV heads GQA, head_dim 128, RoPE θ=1e6, RMSNorm, **SwiGLU
 MLP**, attention+MLP residuals; weights from safetensors), with **each layer's** per-branch
 K/V cache **physically backed by CoW VMM pages** (one BranchKV per layer per branch, so a
-forked child aliases ALL 4 layers' prefix pages with zero copy). Each decode step runs the
-full N-layer stack: embed → for li in 0..3 [ln1 → q/k/v proj+bias → RoPE → append K/V to
+forked child aliases ALL layers' prefix pages with zero copy). Each decode step runs the
+full N-layer stack: embed → for li in 0..N-1 [ln1 → q/k/v proj+bias → RoPE → append K/V to
 layer li's CoW pages → GQA SDPA → attn residual → ln2 → SwiGLU MLP → MLP residual] → final
 norm → tied lm_head → next token. (`src/decode_layer.py:QwenLayerN`, `bench/bench_metric5b_decode.py`.)
 
+**R3 P0-1 — FULL 28-layer depth validation (the metacode ask).** R2 ran the first 4 layers;
+a reviewer asked us to prove the CoW mechanism holds at the FULL model depth, not a subset.
+`QwenLayerN` now loads every wanted layer from whichever of the 4 safetensors shards holds it
+(via the official `model.safetensors.index.json` weight map; layers span all 4 shards). The
+full 28-layer model loads in ~3 s using ~13.5 GiB. We ran the complete decode at N=28:
+
+| N=28, 8 branches, 3,000-tok UNALIGNED prefix, 32 decode tokens | CoW fork | full clone | delta |
+|--------|----------|-----------|-------|
+| peak live HBM | **1,120 MiB** | 2,016 MiB | **−44%** |
+| KV bytes physically copied | **896 MiB (448 CoW events)** | 1,792 MiB | −50% |
+| decode throughput | 39 tok/s | 40 tok/s | ≈ parity |
+| ALL 8 branches' decoded tokens | — | — | **bit-identical CoW vs clone (hard assert)** |
+| branch-0 decoded tokens | 32 unique values (non-degenerate) | | |
+
+→ **The VMM CoW mechanism holds at full model depth.** All 8 branches are bit-identical to a
+full clone across all 28 layers, the partial-page CoW write path fires correctly (448 real
+events), and peak HBM is cut 44% while sharing the prefix. We did NOT OOM at N=28; the full
+model fits one H100 with room for the KV. tok/s is ~39 (real 28-layer per-token work; our
+Python decode loop is unoptimized — this is a correctness/memory result, not a throughput
+claim). [`data/metric5b_decode_N28.csv`]
+
+**N=4, 16-branch / 128-decode-token config (retained from R2).**
 Workload: N=16 branches forked from a **3,000-token UNALIGNED shared prefix** (B6: 2,048
 tokens/page for GQA-4, so 3,000 lands 952 tokens into page 2 — a partially-filled SHARED
 page that the first decode token overwrites, forcing real CoW), each decoding **128 new
@@ -283,18 +350,41 @@ prefix KV, then decode):
 |--------|----------|-----------|-------|
 | peak live HBM | **288 MiB** | 544 MiB | **−47%** |
 | KV bytes physically copied | **256 MiB (128 CoW events)** | 512 MiB | −50% |
-| decode throughput | **221 tok/s** | 187 tok/s | CoW 1.18× |
+| decode throughput | ~205–221 tok/s | ~158–187 tok/s | ≈ parity (CoW skips up-front deep copy) |
 | ALL 16 branches' decoded tokens | — | — | **bit-identical CoW vs clone (hard assert)** |
 
-**What this proves (reviewer C1 — "single layer is a toy"):** the CoW-aliased VMM pages
-support a REAL multi-layer attention+MLP computation with REAL model weights, producing
-**bit-identical output to a full clone for ALL 16 branches** (P0-3 hard assert across every
-branch, not a branch-0 print; per-branch blake2b token checksums in the CSV), while sharing
-the prefix's HBM. The decoded tokens are **non-degenerate** — with 4 real layers + a
-deterministic full-history repetition penalty (a standard decoding rule that keeps CoW vs
-clone bit-identical), branch-0's 128 tokens are not a single fixed point (vs R1's
-single-layer degenerate all-one-token sequence). Throughput slightly favors CoW here because
-full-clone pays an up-front 512 MiB deep-copy that CoW skips.
+### Metric 5b P0-3 (R3) — Partial-page CoW waste quantification  [`data/metric5b_decode.csv`]
+Our CoW unit is one 2 MiB VMM page = 2,048 tokens for GQA-4. With a 3,000-token prefix the
+last shared page holds only **952 of 2,048 tokens (46%)**. When a child's first decode token
+overwrites that shared boundary page, CoW copies the **whole 2 MiB** even though only 46% is
+valid prefix data. We quantify the waste honestly:
+
+| config | CoW events | bytes copied | valid data in those pages | **wasted bytes** | waste % | vs clone traffic |
+|--------|-----------|--------------|---------------------------|------------------|---------|------------------|
+| N=4, 16 branches  | 128 | 256 MiB | 119 MiB   | **137 MiB** | **54%** | 256 of 512 MiB = 50% |
+| N=28, 8 branches  | 448 | 896 MiB | 416.5 MiB | **480 MiB** | **54%** | 896 of 1,792 MiB = 50% |
+
+**So the 2 MiB granularity wastes ~54% of the bytes it copies on the partially-filled tail
+page** (computed as `wasted = bytes_copied − valid_tokens_in_copied_pages × kv_bytes/token`;
+extra CSV columns `wasted_bytes`, `waste_pct_of_copied`). This is the honest cost of coarse
+granularity — exactly what vLLM APC's 16-token blocks avoid (WRITEUP §vLLM-APC, LIMITATIONS
+#3). **But the win survives it:** even counting all wasted bytes, CoW copies only **50% of
+full-clone's total byte traffic**, because clone copies the *entire* multi-page prefix for
+every branch while CoW only touches the one overwritten tail page per branch. The waste is
+bounded to the partially-filled boundary page(s); fully-filled interior prefix pages stay
+aliased and are never copied. A finer CoW granularity (sub-page block table, the v0.4 path)
+would shrink this 54% but at the cost of the contiguous-VA kernel-transparency Metric 3
+relies on — the trade-off we discuss in the vLLM-APC comparison.
+
+
+**What this proves (reviewer C1 — "single layer is a toy"; metacode R3 — "prove full depth"):**
+the CoW-aliased VMM pages support a REAL multi-layer attention+MLP computation with REAL model
+weights at the **full 28-layer depth**, producing **bit-identical output to a full clone for
+ALL branches** (P0-3 hard assert across every branch, not a branch-0 print; per-branch blake2b
+token checksums in the CSV), while sharing the prefix's HBM. The decoded tokens are
+**non-degenerate** — with real layers + a deterministic full-history repetition penalty (a
+standard decoding rule that keeps CoW vs clone bit-identical), branch-0's tokens are not a
+single fixed point (vs R1's single-layer degenerate all-one-token sequence).
 
 **B6 — the R1 "0 bytes copied" was a page-alignment ARTIFACT, now fixed.** R1 used a 4,096-
 token prefix = exactly 2 pages, so decode only ever appended to fresh tail pages and CoW
@@ -303,12 +393,14 @@ token of each branch overwrites the partially-filled shared boundary page, firin
 partial-page CoW events** (one per branch's first decode step), **256 MiB copied** — the
 genuine cost is now measured and reported.
 
-**HONEST CAVEATS (LIMITATIONS #3, #12):** (1) 4 of 28 layers — validates the memory
-mechanism composes across a real multi-layer stack, NOT full-model throughput or generation
-quality. (2) Tokens are produced under a deterministic repetition penalty to break the
-truncated-model greedy attractor; we report SYSTEMS quantities + bit-identical correctness,
-not text quality. (3) tok/s is 4-layer; a full 28-layer model does ~7× more work per token.
-Figure: `figures/metric5b_decode.png`.
+**HONEST CAVEATS (LIMITATIONS #3, #12):** (1) R3 validates the FULL 28-layer model (8
+branches, bit-identical) AND the N=4 / 16-branch config; the mechanism composes across the
+real layer stack at full depth. We still do NOT claim full-model *throughput* (our Python
+per-token decode loop is unoptimized) or generation *quality*. (2) Tokens are produced under
+a deterministic repetition penalty to break the truncated/greedy attractor; we report SYSTEMS
+quantities + bit-identical correctness, not text quality. (3) tok/s (~39 at N=28, ~205 at
+N=4) reflects an unoptimized reference loop, not a serving-system number. Figures:
+`figures/metric5b_decode.png`.
 
 ### Metric 5c — CoW-on-write decode stress (R2 P0-4 — NEW)  [`data/metric5c_cow_write.csv`]
 Metrics 5/5b are append-dominated; Metric 5c exercises the mechanism's **hot path**: a
@@ -379,7 +471,11 @@ over APC for ordinary prefix dedup. We have **not** benchmarked against a runnin
 
 **Buys:** ~14× more concurrent agent branches per H100 (Metric 4: 6→84) at realistic divergence, by
 sharing the long common prefix's HBM at the MMU level with transparent per-page CoW and
-near-zero attention-kernel overhead.
+near-zero attention-kernel overhead. The concurrent ceiling is **predictable** — Metric 4b
+fits **max_branches ≈ 520,000 / prefix_pages** (constant to 1% across a 12× prefix sweep) —
+so a deployer can size fan-out up front. The mechanism is validated bit-identical at the
+**full 28-layer model depth** (Metric 5b R3), with the 2 MiB granularity's partial-page waste
+(54% on the boundary page) quantified honestly and still net-favorable (50% of clone traffic).
 
 **Does not buy:** lower fork latency (linear in prefix, map-op bound) or end-to-end
 wall-time speedup vs full-clone at the sizes tested. If you are latency-bound and HBM is

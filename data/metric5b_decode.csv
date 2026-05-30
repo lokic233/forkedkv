@@ -1,6 +1,6 @@
 regime,n_branches,prefix_tokens,decode_tokens,num_layers,total_tokens,wall_s,tokens_per_s,peak_live_mib,kv_bytes_copied,peak_live_per_branch_mib
-cow_fork,16,3000,128,4,2048,9.263152565807104,221.09103628064412,288.0,268435456,18.0
-full_clone,16,3000,128,4,2048,10.928447584155947,187.40081646813115,544.0,536870912,34.0
+cow_fork,16,3000,128,4,2048,10.004812522325665,204.70148695239448,288.0,268435456,18.0
+full_clone,16,3000,128,4,2048,9.32654479611665,219.58828749235602,544.0,536870912,34.0
 
 branch,tokens_match,token_checksum_cow,token_checksum_clone,first_mismatch_index
 0,True,f58fbcaf87436878,f58fbcaf87436878,-1
@@ -19,3 +19,8 @@ branch,tokens_match,token_checksum_cow,token_checksum_clone,first_mismatch_index
 13,True,f58fbcaf87436878,f58fbcaf87436878,-1
 14,True,f58fbcaf87436878,f58fbcaf87436878,-1
 15,True,f58fbcaf87436878,f58fbcaf87436878,-1
+
+toks_per_page,last_page_valid_tokens,cow_events,cow_bytes_copied,valid_bytes_in_cowd_pages,wasted_bytes,waste_pct_of_copied,cow_bytes_pct_of_clone
+2048,952,128,268435456,124780544,143654912,53.52,50.00
+
+branch0_first10_tokens,24276,17079,4031,8596,27476,624,13,659,101529,18830

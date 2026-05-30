@@ -71,6 +71,31 @@ plt.title("Metric 4: Concurrent branch capacity on one H100\n(12 GiB shared pref
 plt.grid(axis="y", alpha=0.3); plt.tight_layout()
 plt.savefig(os.path.join(F,"metric4_capacity.png"), dpi=130); plt.close()
 
+# Fig 4b: CONCURRENCY CEILING MODEL (P0-2 R3) — max_branches vs prefix size + K/P fit
+try:
+    dfm = pd.read_csv(os.path.join(D, "metric4b_ceiling.csv"))
+    import numpy as np
+    plt.figure(figsize=(6,4.2))
+    plt.scatter(dfm.prefix_pages, dfm.max_branches, color="C0", zorder=3,
+                label="measured max concurrent branches")
+    K = int(dfm.K_product.median())
+    xs = np.linspace(dfm.prefix_pages.min(), dfm.prefix_pages.max(), 200)
+    plt.plot(xs, K/xs, "--", color="C3",
+             label=f"fit: max_branches = {K:,} / prefix_pages")
+    for _, r in dfm.iterrows():
+        plt.annotate(f"{int(r.max_branches)}\n@{int(r.prefix_gib)}GiB",
+                     (r.prefix_pages, r.max_branches), textcoords="offset points",
+                     xytext=(6,6), fontsize=8)
+    plt.xlabel("Prefix pages per branch (2 MiB pages)")
+    plt.ylabel("Max concurrent CoW branches before OOM")
+    plt.title("Metric 4b: Concurrency ceiling is PREDICTABLE\n"
+              f"K = branches x pages ~ {K:,}  (driver mapping-table limit;\n"
+              "every point OOMs at cuMemSetAccess)", fontsize=10)
+    plt.legend(); plt.grid(alpha=0.3); plt.tight_layout()
+    plt.savefig(os.path.join(F,"metric4b_ceiling.png"), dpi=130); plt.close()
+except Exception as e:
+    print("metric4b ceiling figure skipped:", e)
+
 # Fig 5: e2e
 df = pd.read_csv(os.path.join(D, "metric5_e2e.csv"))
 fig, ax = plt.subplots(1,2,figsize=(11,4))

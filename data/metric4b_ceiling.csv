@@ -1,0 +1,5 @@
+prefix_gib,prefix_pages,max_branches,oom,oom_call,live_gib,K_product
+1,512,1021,True,cuMemSetAccess,1.00,522752
+3,1536,339,True,cuMemSetAccess,3.00,520704
+6,3072,169,True,cuMemSetAccess,6.00,519168
+12,6144,84,True,cuMemSetAccess,12.00,516096

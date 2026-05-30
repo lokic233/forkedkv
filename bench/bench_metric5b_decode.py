@@ -201,6 +201,8 @@ def main():
     ap.add_argument("--decode_tokens", type=int, default=128)
     ap.add_argument("--branches", type=int, default=16)
     ap.add_argument("--num_layers", type=int, default=4)  # P0-1: N=4 full blocks
+    ap.add_argument("--out", type=str, default=OUT,
+                    help="output CSV path (default data/metric5b_decode.csv)")
     args = ap.parse_args()
 
     _init_torch()
@@ -261,7 +263,42 @@ def main():
             dict(wall_s=dt, tokens_per_s=tps, peak_live_mib=peak, kv_bytes_copied=bcopy,
                  peak_live_per_branch_mib=per_branch_mib, cow_events=cow_ev if regime=="cow_fork" else 0))
 
-    with open(OUT, "w", newline="") as f:
+    # ----- P0-3 (R3): partial-page CoW waste quantification -----
+    # 2MiB CoW granularity copies a WHOLE page even when only part of it holds valid
+    # tokens. We quantify the wasted bytes honestly: for the CoW regime, the only pages
+    # that get CoW'd are the SHARED prefix tail page(s) the first decode token overwrites.
+    # Each CoW event copies a full 2MiB page; the "valid" content of the LAST prefix page
+    # is only (prefix_tokens mod toks_per_page) tokens (the page is partially filled).
+    kv_bytes_per_tok_per_layer = L.n_kv * L.hd * 2          # one layer's K (or V) per token
+    last_page_valid_toks = P % toks_per_page                # tokens in the partially-filled tail page
+    # bytes that are REAL data inside the CoW'd pages vs bytes the 2MiB granularity forced us to copy.
+    # cow_ev CoW events each copied one full page = page_size bytes; the K-range and V-range
+    # tail pages each carry n_kv*hd*2 bytes per valid token.
+    cow_page_bytes = toks_per_page * kv_bytes_per_tok_per_layer    # == page_size (a full K or V page)
+    if last_page_valid_toks == 0:
+        # aligned prefix: the overwritten tail page is FULL -> zero partial-page waste
+        valid_bytes_in_cowd = cow_ev * cow_page_bytes
+    else:
+        # each CoW event hit a tail page whose valid content is last_page_valid_toks tokens
+        valid_bytes_in_cowd = cow_ev * last_page_valid_toks * kv_bytes_per_tok_per_layer
+    wasted_bytes = bcopy_c - valid_bytes_in_cowd
+    waste_pct = (100.0 * wasted_bytes / bcopy_c) if bcopy_c else 0.0
+    # Honest "does this overhead matter?" framing: compare CoW's wasted bytes against the
+    # FULL-CLONE bytes (the alternative this mechanism replaces). CoW copies only the
+    # touched tail pages; clone copies the ENTIRE prefix for every branch. Even WITH the
+    # partial-page waste, CoW moves far fewer bytes than clone.
+    clone_bytes = bcopy_b
+    cow_vs_clone_pct = (100.0 * bcopy_c / clone_bytes) if clone_bytes else 0.0
+    print(f"\n[P0-3] partial-page CoW waste (2MiB granularity):")
+    print(f"  toks/page={toks_per_page}, last prefix page holds {last_page_valid_toks}/{toks_per_page} valid tokens")
+    print(f"  CoW copied {bcopy_c/MIB:.2f} MiB across {cow_ev} events; "
+          f"valid data in those pages = {valid_bytes_in_cowd/MIB:.2f} MiB; "
+          f"WASTED = {wasted_bytes/MIB:.2f} MiB ({waste_pct:.0f}% of copied)")
+    print(f"  context: even WITH this waste, CoW copies {bcopy_c/MIB:.0f} MiB vs full-clone "
+          f"{clone_bytes/MIB:.0f} MiB = {cow_vs_clone_pct:.0f}% of clone's traffic "
+          f"({100-cow_vs_clone_pct:.0f}% less total bytes moved)")
+
+    with open(args.out, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["regime", "n_branches", "prefix_tokens", "decode_tokens", "num_layers",
                     "total_tokens", "wall_s", "tokens_per_s", "peak_live_mib",
@@ -273,7 +310,18 @@ def main():
                     "first_mismatch_index"])
         for b, match, ck_c, ck_l, fm in per_branch:
             w.writerow([b, match, ck_c, ck_l, fm])
-    print("wrote", OUT)
+        # P0-3 (R3) partial-page CoW waste section
+        w.writerow([])
+        w.writerow(["toks_per_page", "last_page_valid_tokens", "cow_events",
+                    "cow_bytes_copied", "valid_bytes_in_cowd_pages", "wasted_bytes",
+                    "waste_pct_of_copied", "cow_bytes_pct_of_clone"])
+        w.writerow([toks_per_page, last_page_valid_toks, cow_ev, bcopy_c,
+                    int(valid_bytes_in_cowd), int(wasted_bytes),
+                    f"{waste_pct:.2f}", f"{cow_vs_clone_pct:.2f}"])
+        # P1-2 (R3) raw first-10 decoded tokens of branch-0 (non-degeneracy proof)
+        w.writerow([])
+        w.writerow(["branch0_first10_tokens"] + [str(t) for t in seqs_cow[0][:10]])
+    print("wrote", args.out)
 
     cow = rows[0]; clo = rows[1]
     print(f"\nHEADLINE (N={NL} layers, {N} branches, {P}-tok UNALIGNED prefix, {D}-tok decode):")

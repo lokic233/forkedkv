@@ -1,4 +1,4 @@
-# Limitations — what we did NOT measure / what is mocked (v0.3, R2)
+# Limitations — what we did NOT measure / what is mocked (v0.4, R3)
 
 Read this before trusting any number in WRITEUP.md.
 
@@ -27,16 +27,18 @@ Read this before trusting any number in WRITEUP.md.
 
 ## Workload caveats
 
-3. **Metric 5 (macro) fills KV synthetically; Metric 5b (R2) runs REAL MULTI-LAYER decode.**
+3. **Metric 5 (macro) fills KV synthetically; Metric 5b runs REAL MULTI-LAYER decode at FULL depth (R3).**
    Metric 5 sizes prefixes from real SWE-bench text (R2: 24 instances spanning the full size
    distribution) and runs the real memory mechanism but fills KV synthetically (no forward
-   pass). Metric 5b (R2 P0-1) runs a REAL autoregressive decode loop with the **first 4 full
-   transformer blocks** of Qwen2.5-7B (attention + SwiGLU MLP + residuals), each layer's KV
-   on CoW pages. CAVEAT for 5b: 4 of 28 layers (proves the mechanism COMPOSES across a real
-   multi-layer stack; NOT full-model throughput); tokens are produced under a deterministic
-   repetition penalty to break the truncated-model greedy attractor (so they are
-   non-degenerate AND bit-identical CoW-vs-clone). We did NOT run the full 28-layer model,
-   did NOT measure full-model tok/s, and did NOT evaluate generation quality.
+   pass). Metric 5b runs a REAL autoregressive decode loop with REAL Qwen2.5-7B transformer
+   blocks (attention + SwiGLU MLP + residuals), each layer's KV on CoW pages. **R3 (P0-1)
+   extends it from the R2 first-4-layers subset to the FULL 28-layer model** (8 branches,
+   all bit-identical CoW vs clone). CAVEAT: tokens are produced under a deterministic
+   repetition penalty to break the truncated/greedy attractor (so they are non-degenerate AND
+   bit-identical CoW-vs-clone). Our per-token decode loop is an **unoptimized Python reference
+   loop** (~39 tok/s at N=28, ~205 at N=4) — we report SYSTEMS quantities (peak HBM, bytes
+   copied) + bit-identical correctness, NOT serving-grade throughput or generation quality. We
+   did NOT run a production inference engine and did NOT evaluate text quality.
 
 4. **We did NOT run the SWE-bench-Verified test harness or solve any instances.**
    We use 24 of 500 instances purely to derive realistic prefix sizes. No patches were
@@ -58,18 +60,21 @@ Read this before trusting any number in WRITEUP.md.
 
 ## Scale / coverage caveats
 
-7. **Single H100; 4 of 28 layers.** Metric 3 uses one attention op (32 heads, head_dim 128,
-   fp16); Metric 5b uses the first 4 real Qwen2.5-7B blocks. Neither is a full 28-layer
-   model. Multi-GPU not attempted.
+7. **Single H100. Metric 3 uses one attention op; Metric 5b runs the FULL 28 layers (R3).**
+   Metric 3 uses one attention op (32 heads, head_dim 128, fp16). Metric 5b (R3 P0-1) runs the
+   full 28 real Qwen2.5-7B blocks (loaded across all 4 safetensors shards), bit-identical CoW
+   vs clone — no longer a layer subset. Multi-GPU not attempted.
 
-8. **Metric 4: 84 concurrent CoW branches, OOM forensically attributed (R2 P0-2).** Full-
-   clone OOMs at 6 (data-driven, 94.5 GiB). CoW OOMs at **84 concurrent branches at the
-   exact call `cuMemSetAccess`** (instrumented via `vmm_pool.CudaCallError`), with live data
-   HBM flat at 12.0 GiB — so the ceiling is VA/mapping metadata, NOT data (now measured, not
-   inferred). A VA free-list recycles freed branches' VA (120 fork→destroy cycles:
-   reserved=10, reused=119, live HBM flat) so SERIAL throughput is unbounded; but pooling
-   does NOT raise the CONCURRENT count (84 live branches free nothing) and we do not claim it
-   does. NOT claimed: that 84 is the data-memory ceiling, or that pooling raises concurrency.
+8. **Metric 4 / 4b: concurrency ceiling forensically attributed AND modeled (R2 P0-2 + R3 P0-2).**
+   Full-clone OOMs at 6 (data-driven, 94.5 GiB). CoW OOMs at the exact call `cuMemSetAccess`
+   (instrumented via `vmm_pool.CudaCallError`), with live data HBM flat at one prefix — so the
+   ceiling is VA/mapping metadata, NOT data (measured, not inferred). **R3 (Metric 4b) sweeps
+   prefix size and fits the ceiling: max_branches ≈ 520,000 / prefix_pages** (product B × P
+   constant to within 1% across 1/3/6/12 GiB → 1021/339/169/84 branches). A VA free-list
+   recycles freed branches' VA (120 fork→destroy cycles: reserved=10, reused=119, live HBM
+   flat) so SERIAL throughput is unbounded; but pooling does NOT raise the CONCURRENT count
+   (live branches free nothing) and we do not claim it does. NOT claimed: that the ceiling is
+   data-memory bound, or that pooling raises concurrency.
 
 9. **Fork latency is NOT flat (Metric 1).** CoW fork latency grows ~LINEARLY with prefix
    pages (per-page cuMemMap + cuMemSetAccess). We do NOT claim flat. CoW is ~1.3× faster than
@@ -80,9 +85,39 @@ Read this before trusting any number in WRITEUP.md.
     0.4–3.0× — parity, noise; Metric 5b: 221 vs 187 tok/s, CoW slightly faster only because
     clone pays an up-front deep copy). CoW's win is MEMORY/CAPACITY, not latency.
 
-12. **Metric 5b uses 4 transformer layers.** It proves CoW pages support real multi-layer
-    attention+MLP compute (bit-identical to clone for all 16 branches), not full-model
-    behavior. Full 28-layer decode, generation quality, and full-model tok/s are NOT measured.
+12. **Metric 5b validated at FULL 28-layer depth (R3 P0-1).** R2 ran 4 layers; R3 runs the
+    full 28-layer Qwen2.5-7B (8 branches, all bit-identical CoW vs clone, 448 real CoW events
+    at full depth). It proves CoW pages support real multi-layer attention+MLP compute at full
+    model depth, NOT serving-grade throughput or generation quality (unoptimized Python decode
+    loop; ~39 tok/s at N=28). Generation quality and full-model tok/s in a real engine are NOT
+    measured.
+
+14. **Partial-page CoW waste: 54% of copied bytes on the boundary page (R3 P0-3).** Our CoW
+    unit is one 2 MiB VMM page (2,048 tokens for GQA-4). When a child overwrites a *partially-
+    filled* shared tail page (e.g. a 3,000-token prefix → 952 of 2,048 tokens valid), CoW
+    copies the whole 2 MiB even though only ~46% is real data — so **54% of the bytes copied on
+    that page are waste** (137 of 256 MiB at N=4; 480 of 896 MiB at N=28; `wasted_bytes` /
+    `waste_pct_of_copied` columns in `data/metric5b_decode*.csv`). We report this transparently.
+    It does NOT erase the win — even counting all waste, CoW copies only 50% of full-clone's
+    total byte traffic (clone copies the whole multi-page prefix per branch; CoW touches only
+    the one overwritten tail page). Fully-filled interior prefix pages stay aliased and are
+    never copied. A sub-page block-table granularity (v0.4 path) would shrink this but at the
+    cost of contiguous-VA kernel transparency (Metric 3); see the vLLM-APC comparison.
+
+15. **CUDA Graphs: CoW remaps must NOT occur inside a captured/replaying graph (design note,
+    R3 P1-1).** Production serving engines (vLLM, TensorRT-LLM) capture the decode step into a
+    CUDA Graph for launch-overhead amortization. Our CoW path issues driver calls
+    (`cuMemUnmap` / `cuMemMap` / `cuMemSetAccess`) that mutate the **page-table mapping** of a
+    captured VA. CUDA Graphs capture a fixed sequence of *kernel/memcpy* nodes against a fixed
+    address space; **changing the VA→physical mapping under a graph is not a graph-legal
+    operation** and would either be ignored at replay or corrupt the captured node's memory
+    view. The correct integration (not built here) is to perform all fork/CoW remaps at a
+    **branch boundary OUTSIDE graph capture** — i.e. fork → remap → (re)capture/replay the
+    decode graph against the now-stable mapping. Because a fork is an explicit causal boundary
+    in our model (not a per-token event), this composes naturally: the steady-state per-token
+    decode inside the graph never remaps; only the (rare, explicit) branch point does, between
+    graph replays. We did NOT integrate with a CUDA-Graph-capturing engine; this is a documented
+    constraint for the deployment path, not a measured result.
 
 13. **vLLM APC comparison is ANALYTIC, not benchmarked (R2 P1-B).** WRITEUP compares our VMM
     CoW vs vLLM Automatic Prefix Caching / block-table sharing on design grounds (kernel-
