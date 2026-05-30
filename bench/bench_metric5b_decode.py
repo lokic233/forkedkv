@@ -157,9 +157,9 @@ def run_clone(L, prefix_tokens, decode_tokens, n_branches):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--prefix_tokens", type=int, default=2000)
+    ap.add_argument("--prefix_tokens", type=int, default=4096)  # R1 committed headline config
     ap.add_argument("--decode_tokens", type=int, default=128)
-    ap.add_argument("--branches", type=int, default=8)
+    ap.add_argument("--branches", type=int, default=16)  # R1 committed headline config
     args = ap.parse_args()
 
     _init_torch()
