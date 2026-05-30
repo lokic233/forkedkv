@@ -1,0 +1,10 @@
+seqlen,metric,contig_median,vmm_median,rel_diff_pct,contig_n,vmm_n
+4096,gpu__time_duration.sum,574768.0,574976.0,0.036188514322300476,2,2
+4096,sm__throughput.avg.pct_of_peak_sustained_elapsed,71.765,71.735,-0.04180310736431567,2,2
+4096,dram__throughput.avg.pct_of_peak_sustained_elapsed,8.995000000000001,9.004999999999999,0.11117287381876609,2,2
+4096,lts__t_sector_hit_rate.pct,86.95,82.505,-5.112133410005758,2,2
+4096,lts__t_sectors_aperture_device.sum,38624508.5,40807290.5,5.65128744615611,2,2
+4096,lts__t_sectors_aperture_peer.sum,0.0,0.0,nan,2,2
+4096,lts__t_sectors_aperture_sysmem.sum,37990.5,30535.5,-19.623326884352668,2,2
+4096,smsp__inst_executed.sum,156552976.0,156553453.5,0.0003050085742221854,2,2
+4096,l1tex__t_sector_hit_rate.pct,0.0,0.0,nan,2,2

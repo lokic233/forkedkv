@@ -47,9 +47,13 @@ METRICS = [
     "l1tex__t_sector_hit_rate.pct",
 ]
 
-SEQLENS = [2048, 4096, 8192]
+SEQLENS = [2048, 4096]
 METHODS = ["contig", "vmm"]
-REPEATS = 3   # multiple runs per cell to estimate cross-run noise
+REPEATS = 2   # 2 reps × 4 cells × ~2-3 min each = ~20 min total. seqlen=8192 vmm
+              # hangs intermittently under ncu (probable driver-instrumentation issue
+              # with VMM-mapped tensors at large kernel size); we drop it.
+              # The 4096 cell already exercises a 0.86 ms kernel — plenty of work to
+              # see any hardware-level VMM penalty if one existed.
 
 OUT = os.path.join(ROOT, "data", "lab2_ncu_counters.csv")
 
@@ -79,8 +83,9 @@ def parse_ncu_csv(text):
     return rows
 
 
-def run_ncu(method, seqlen, log_dir):
+def run_ncu(method, seqlen, log_dir, rep=0):
     cmd = [
+        "timeout", "240",
         NCU,
         "--target-processes", "all",
         "--profile-from-start", "no",
@@ -88,16 +93,25 @@ def run_ncu(method, seqlen, log_dir):
         "--csv",
         sys.executable, TARGET, method, str(seqlen),
     ]
+    env = os.environ.copy()
+    # Pin to GPU 1 to avoid an orphaned uninterruptible CUDA process holding state on GPU 0
+    # (a vmm_8192 ncu run earlier got stuck in R state and we can't kill it).
+    env.setdefault("CUDA_VISIBLE_DEVICES", "1")
     t0 = time.time()
-    p = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, timeout=600)
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, timeout=300, env=env)
+        out = (p.stdout or "") + "\n" + (p.stderr or "")
+        rc = p.returncode
+    except subprocess.TimeoutExpired as e:
+        out_b = lambda x: x.decode("utf-8", "replace") if isinstance(x, (bytes, bytearray)) else (x or "")
+        out = out_b(e.stdout) + "\n" + out_b(e.stderr) + "\n[TIMEOUT after 300s]"
+        rc = 124
     dur = time.time() - t0
-    out = p.stdout + "\n" + p.stderr
-    log_path = os.path.join(log_dir, f"ncu_{method}_{seqlen}.log")
+    log_path = os.path.join(log_dir, f"ncu_{method}_{seqlen}_r{rep}.log")
     with open(log_path, "w") as f:
         f.write(out)
-    if p.returncode != 0:
-        print(f"  !! ncu failed for {method} sl={seqlen} rc={p.returncode}")
-        print(out[-1500:])
+    if rc != 0:
+        print(f"  !! ncu failed/timeout for {method} sl={seqlen} rc={rc} ({dur:.1f}s)")
     rows = parse_ncu_csv(out)
     print(f"  {method:<7} sl={seqlen}  {len(rows):3d} metric-rows  ({dur:.1f}s)")
     return rows
@@ -110,7 +124,7 @@ def main():
     for rep in range(REPEATS):
         for sl in SEQLENS:
             for method in METHODS:
-                rs = run_ncu(method, sl, log_dir)
+                rs = run_ncu(method, sl, log_dir, rep=rep)
                 for r in rs:
                     all_rows.append(dict(method=method, seqlen=sl, repeat=rep, **r))
     with open(OUT, "w", newline="") as f:

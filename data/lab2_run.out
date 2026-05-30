@@ -1,0 +1,42 @@
+  contig  sl=2048    9 metric-rows  (6.0s)
+  !! ncu failed/timeout for vmm sl=2048 rc=124 (300.1s)
+  vmm     sl=2048    0 metric-rows  (300.1s)
+  contig  sl=4096    9 metric-rows  (121.6s)
+  vmm     sl=4096    9 metric-rows  (5.5s)
+  contig  sl=2048    9 metric-rows  (5.6s)
+  !! ncu failed/timeout for vmm sl=2048 rc=124 (300.1s)
+  vmm     sl=2048    0 metric-rows  (300.1s)
+  contig  sl=4096    9 metric-rows  (49.1s)
+  vmm     sl=4096    9 metric-rows  (5.6s)
+
+wrote /home/dengcchi/branchable_replay/data/lab2_ncu_counters.csv  (54 rows)
+
+--- median across repeats (SDPA kernel only) ---
+method  sl     metric                                                             median  spread%
+contig  2048   dram__throughput.avg.pct_of_peak_sustained_elapsed                  15.49    0.00%
+contig  2048   gpu__time_duration.sum                                          1.559e+05    0.18%
+contig  2048   l1tex__t_sector_hit_rate.pct                                            0    0.00%
+contig  2048   lts__t_sector_hit_rate.pct                                           70.4    2.90%
+contig  2048   lts__t_sectors_aperture_device.sum                              1.097e+07    4.26%
+contig  2048   lts__t_sectors_aperture_peer.sum                                        0    0.00%
+contig  2048   lts__t_sectors_aperture_sysmem.sum                              2.765e+04    0.00%
+contig  2048   sm__throughput.avg.pct_of_peak_sustained_elapsed                    67.18    0.27%
+contig  2048   smsp__inst_executed.sum                                         3.984e+07    0.00%
+contig  4096   dram__throughput.avg.pct_of_peak_sustained_elapsed                  8.995    1.89%
+vmm     4096   dram__throughput.avg.pct_of_peak_sustained_elapsed                  9.005    1.67%
+contig  4096   gpu__time_duration.sum                                          5.748e+05    0.99%
+vmm     4096   gpu__time_duration.sum                                           5.75e+05    0.97%
+contig  4096   l1tex__t_sector_hit_rate.pct                                            0    0.00%
+vmm     4096   l1tex__t_sector_hit_rate.pct                                            0    0.00%
+contig  4096   lts__t_sector_hit_rate.pct                                          86.95    2.44%
+vmm     4096   lts__t_sector_hit_rate.pct                                           82.5    4.67%
+contig  4096   lts__t_sectors_aperture_device.sum                              3.862e+07    1.06%
+vmm     4096   lts__t_sectors_aperture_device.sum                              4.081e+07    3.07%
+contig  4096   lts__t_sectors_aperture_peer.sum                                        0    0.00%
+vmm     4096   lts__t_sectors_aperture_peer.sum                                        0    0.00%
+contig  4096   lts__t_sectors_aperture_sysmem.sum                              3.799e+04   10.60%
+vmm     4096   lts__t_sectors_aperture_sysmem.sum                              3.054e+04    7.55%
+contig  4096   sm__throughput.avg.pct_of_peak_sustained_elapsed                    71.77    0.35%
+vmm     4096   sm__throughput.avg.pct_of_peak_sustained_elapsed                    71.73    0.29%
+contig  4096   smsp__inst_executed.sum                                         1.566e+08    0.01%
+vmm     4096   smsp__inst_executed.sum                                         1.566e+08    0.00%

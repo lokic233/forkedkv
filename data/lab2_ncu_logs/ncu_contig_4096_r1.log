@@ -1,0 +1,21 @@
+==PROF== Connected to process 3108099 (/usr/local/fbcode/platform010/bin/python3.12)
+==PROF== Disconnected from process 3108099
+"ID","Process ID","Process Name","Host Name","Kernel Name","Context","Stream","Block Size","Grid Size","Device","CC","Section Name","Metric Name","Metric Unit","Metric Value"
+"0","3108099","python3.12","127.0.0.1","cudnn_generated_fort_native_sdpa_sm90_flash_fprop_wgmma_f16_knob_7_64x128x128_4x1x1_cga1x1x1_kernel0_0","1","7","(384, 1, 1)","(132, 1, 1)","0","9.0","Command line profiler metrics","dram__throughput.avg.pct_of_peak_sustained_elapsed","%","9.08"
+"0","3108099","python3.12","127.0.0.1","cudnn_generated_fort_native_sdpa_sm90_flash_fprop_wgmma_f16_knob_7_64x128x128_4x1x1_cga1x1x1_kernel0_0","1","7","(384, 1, 1)","(132, 1, 1)","0","9.0","Command line profiler metrics","gpu__time_duration.sum","ns","571,936"
+"0","3108099","python3.12","127.0.0.1","cudnn_generated_fort_native_sdpa_sm90_flash_fprop_wgmma_f16_knob_7_64x128x128_4x1x1_cga1x1x1_kernel0_0","1","7","(384, 1, 1)","(132, 1, 1)","0","9.0","Command line profiler metrics","l1tex__t_sector_hit_rate.pct","%","0"
+"0","3108099","python3.12","127.0.0.1","cudnn_generated_fort_native_sdpa_sm90_flash_fprop_wgmma_f16_knob_7_64x128x128_4x1x1_cga1x1x1_kernel0_0","1","7","(384, 1, 1)","(132, 1, 1)","0","9.0","Command line profiler metrics","lts__t_sector_hit_rate.pct","%","85.89"
+"0","3108099","python3.12","127.0.0.1","cudnn_generated_fort_native_sdpa_sm90_flash_fprop_wgmma_f16_knob_7_64x128x128_4x1x1_cga1x1x1_kernel0_0","1","7","(384, 1, 1)","(132, 1, 1)","0","9.0","Command line profiler metrics","lts__t_sectors_aperture_device.sum","sector","38,419,944"
+"0","3108099","python3.12","127.0.0.1","cudnn_generated_fort_native_sdpa_sm90_flash_fprop_wgmma_f16_knob_7_64x128x128_4x1x1_cga1x1x1_kernel0_0","1","7","(384, 1, 1)","(132, 1, 1)","0","9.0","Command line profiler metrics","lts__t_sectors_aperture_peer.sum","sector","0"
+"0","3108099","python3.12","127.0.0.1","cudnn_generated_fort_native_sdpa_sm90_flash_fprop_wgmma_f16_knob_7_64x128x128_4x1x1_cga1x1x1_kernel0_0","1","7","(384, 1, 1)","(132, 1, 1)","0","9.0","Command line profiler metrics","lts__t_sectors_aperture_sysmem.sum","sector","40,004"
+"0","3108099","python3.12","127.0.0.1","cudnn_generated_fort_native_sdpa_sm90_flash_fprop_wgmma_f16_knob_7_64x128x128_4x1x1_cga1x1x1_kernel0_0","1","7","(384, 1, 1)","(132, 1, 1)","0","9.0","Command line profiler metrics","sm__throughput.avg.pct_of_peak_sustained_elapsed","%","71.89"
+"0","3108099","python3.12","127.0.0.1","cudnn_generated_fort_native_sdpa_sm90_flash_fprop_wgmma_f16_knob_7_64x128x128_4x1x1_cga1x1x1_kernel0_0","1","7","(384, 1, 1)","(132, 1, 1)","0","9.0","Command line profiler metrics","smsp__inst_executed.sum","inst","156,548,836"
+
+[lab2_target contig/4096] imported torch
+[lab2_target contig/4096] built Q
+[lab2_target contig/4096] built K,V
+[lab2_target contig/4096] warmed
+[lab2_target contig/4096] profilerStart returned
+[lab2_target contig/4096] sdpa+sync done
+[lab2_target contig/4096] profilerStop returned
+[lab2_target contig/4096] done

@@ -722,3 +722,25 @@ host RAM; we cap at K/P ≈ 16,250 at a 32-page prefix), or finer CoW granularit
 (software's 16-token blocks can be 8× smaller than our 2 MiB page at small models).
 If you are latency-bound or capacity-bound and willing to maintain a custom paged-
 attention kernel, vLLM APC is the better mechanism today.
+
+## Lab 3b — Production Paged Baseline (FlashInfer 0.6.12)
+
+**The Lab 3 "2.3× faster" claim does not survive against a production baseline.**
+
+Lab 3 compared cuDNN SDPA (dense, 28-head materialization) vs a minimal Triton paged
+kernel. Both sides were mismeasured: SDPA was too slow (dense, not GQA-native) and the
+paged kernel was too slow (no split-K, no tensor-core GQA). Against FlashInfer 0.6.12
+(the SGLang production kernel) with a fair GQA-native SDPA baseline:
+
+| B | S | SDPA-GQA (contiguous) | FlashInfer paged | Ratio |
+|---|---|---|---|---|
+| 64 | 2048 | 0.132 ms | 0.145 ms | **1.10×** |
+| 64 | 8192 | 0.474 ms | 0.499 ms | **1.05×** |
+| 32 | 512 | 0.024 ms | 0.036 ms | **1.52×** |
+
+**Honest conclusion:** Contiguous VA is modestly faster (5–52%, largest at short context
+where paging's fixed overhead dominates). The advantage is NOT 2.3×. ForkedKV's case
+rests on what paging *cannot cheaply do* — zero-copy fork, branch-level CoW sharing,
+contiguous-VA simplicity — not on a large raw decode speed gap.
+
+[`data/lab3b_flashinfer.csv`, `LAB3B_NOTES.md`]

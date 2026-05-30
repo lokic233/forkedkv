@@ -1,0 +1,19 @@
+Lab 2 — Hardware counter evidence: contiguous vs VMM-paged SDPA
+============================================================================================================
+
+seqlen = 2048
+  metric                            contig (median)     vmm (median)   rel_diff  verdict             
+  ----------------------------------------------------------------------------------------------------
+
+seqlen = 4096
+  metric                            contig (median)     vmm (median)   rel_diff  verdict             
+  ----------------------------------------------------------------------------------------------------
+  kernel_ns                               5.748e+05         5.75e+05     +0.04%  identical (<1%)     
+  sm_throughput_pct                           71.77            71.73     -0.04%  identical (<1%)     
+  dram_throughput_pct                         8.995            9.005     +0.11%  identical (<1%)     
+  l2_hit_rate_pct                             86.95             82.5     -5.11%  mild diff (<10%)    
+  l2_sectors_device                       3.862e+07        4.081e+07     +5.65%  mild diff (<10%)    
+  l2_sectors_peer                                 0                0      +nan%  DIFFERS             
+  l2_sectors_sysmem                       3.799e+04        3.054e+04    -19.62%  DIFFERS             
+  instructions_executed                   1.566e+08        1.566e+08     +0.00%  identical (<1%)     
+  l1_hit_rate_pct                                 0                0      +nan%  DIFFERS             
