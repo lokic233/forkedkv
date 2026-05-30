@@ -89,3 +89,43 @@ plt.tight_layout(); plt.savefig(os.path.join(F,"metric5_e2e.png"), dpi=130); plt
 
 print("wrote figures to", F)
 for fn in sorted(os.listdir(F)): print(" ", fn)
+
+# Fig 5b: real single-layer decode — peak HBM + bytes copied (P0-A)
+try:
+    df = pd.read_csv(os.path.join(D, "metric5b_decode.csv"))
+    fig, ax = plt.subplots(1, 3, figsize=(13, 4))
+    regimes = ["cow_fork", "full_clone"]; colors = {"cow_fork":"C0","full_clone":"C3"}
+    labels = {"cow_fork":"CoW fork","full_clone":"Full clone"}
+    for j, col, ylab, ttl in [(0,"peak_live_mib","Peak live HBM (MiB)","Peak HBM"),
+                              (1,"kv_bytes_copied","KV bytes copied (MiB)","KV bytes copied"),
+                              (2,"tokens_per_s","tokens / s","Decode throughput")]:
+        vals = []
+        for r in regimes:
+            v = df[df.regime==r][col].iloc[0]
+            if col=="kv_bytes_copied": v = v/2**20
+            vals.append(v)
+        ax[j].bar([labels[r] for r in regimes], vals, color=[colors[r] for r in regimes])
+        ax[j].set_ylabel(ylab); ax[j].set_title(ttl); ax[j].grid(axis="y", alpha=0.3)
+    N=int(df.n_branches.iloc[0]); P=int(df.prefix_tokens.iloc[0]); Dd=int(df.decode_tokens.iloc[0])
+    plt.suptitle(f"Metric 5b (P0-A): real single-layer decode over CoW KV\n"
+                 f"Qwen2.5-7B layer-0, N={N} branches, {P}-tok prefix, {Dd}-tok decode each (H100)")
+    plt.tight_layout(); plt.savefig(os.path.join(F,"metric5b_decode.png"), dpi=130); plt.close()
+except Exception as e:
+    print("fig5b skipped:", e)
+
+# Fig: CoW overhead decomposition (B5)
+try:
+    df = pd.read_csv(os.path.join(D, "cow_overhead.csv"))
+    order = ["full_cow","d2d_copy_only","scratch_va_bookkeeping_only"]
+    names = {"full_cow":"Full CoW","d2d_copy_only":"D2D copy\n(unavoidable)",
+             "scratch_va_bookkeeping_only":"Scratch-VA\nbookkeeping\n(removable)"}
+    vals = [df[df.component==c].ns_median.iloc[0]/1e3 for c in order]
+    plt.figure(figsize=(6,4))
+    bars = plt.bar([names[c] for c in order], vals, color=["C5","C2","C1"])
+    for b,v in zip(bars, vals): plt.text(b.get_x()+b.get_width()/2, v+1, f"{v:.0f}us", ha="center", fontsize=9)
+    plt.ylabel("Median latency (us)")
+    plt.title("B5: CoW cost decomposition (2 MiB page, H100, n=300)\nCoW is map-op bound; D2D copy is only ~7%")
+    plt.grid(axis="y", alpha=0.3); plt.tight_layout()
+    plt.savefig(os.path.join(F,"cow_overhead.png"), dpi=130); plt.close()
+except Exception as e:
+    print("cow_overhead fig skipped:", e)

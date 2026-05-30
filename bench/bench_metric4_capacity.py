@@ -18,7 +18,7 @@ from explog import log
 # prefix sized so a single branch is ~12 GiB -> full clone OOMs after a handful.
 PREFIX_PAGES = 6144            # 6144 * 2MiB = 12 GiB prefix
 MAX_BRANCHES_CLONE = 64      # clone OOMs long before this
-MAX_BRANCHES_COW = 4096      # P1-A: sweep CoW until it actually OOMs (VA / handle / HBM)
+MAX_BRANCHES_COW = 512      # P1-A: sweep CoW to OOM or 512 (each fork = 6144 map ops at 12GiB prefix)
 OUT = os.path.join(os.path.dirname(__file__), "..", "data", "metric4_capacity.csv")
 
 def is_oom(e):
@@ -31,14 +31,18 @@ def cow_capacity():
     snap = m.snapshot("p")
     n = 0
     oom = False
+    traj = []
     try:
         for i in range(MAX_BRANCHES_COW):
             m.fork(snap, f"c{i}")   # zero-copy alias
             n += 1
+            if n % 32 == 0:
+                traj.append((n, len(m.pool.pages) * m.page_size / 2**30))
     except RuntimeError as e:
         oom = is_oom(e)
         if not oom: raise
     live = len(m.pool.pages) * m.page_size / 2**30
+    print("COW_TRAJ", traj)
     return n, oom, live
 
 def clone_capacity():

@@ -72,3 +72,71 @@ reconstructed them from intact structural fields and the committed v0.1 CSVs:
 `chars_per_token = 4` (back-solved from `prefix_tokens` in `data/metric5_e2e.csv`:
 django-14500 has ps_chars=292, prefix_tokens=6873, sys+repo=6800 => 73 prob tokens =>
 292/73 = 4). Both reproduce the v0.1 CSV exactly.
+
+---
+
+## P1-B: vLLM integration design sketch (Option B — not implemented, R1)
+
+The committee asked "deployability?". We did NOT patch vLLM in R1 (R1-D3: Option B). We
+follow vAttention's (ASPLOS'25) precedent of validating the VMM mechanism in a standalone
+prototype first, then describing the integration path. Below is the concrete design.
+
+### Where vLLM stands today
+vLLM's `PagedAttention` already allocates KV in fixed-size **blocks** (default 16 tokens)
+managed by `BlockManager` / `KVCacheManager`. Blocks are indexed by a per-sequence
+**block table** (logical block -> physical block id). Prefix caching ("automatic prefix
+caching", APC) already lets multiple sequences SHARE read-only prefix blocks via a hash
+of block contents, with copy-on-write at block granularity when a shared block is written.
+
+**Key observation:** vLLM APC is already a CoW system, but at the *block-table* level over
+a pre-allocated torch KV pool — NOT at the GPU MMU level. It shares by pointing two block
+tables at the same physical block id; it cannot share at sub-block granularity and it
+cannot grow the physical pool past what was pre-reserved at startup.
+
+### What our mechanism adds
+Our VMM CoW shares at the **GPU virtual-address / page-table** level (2 MiB pages), which
+(a) lets the attention kernel see one contiguous VA range (no block-table indirection in
+the kernel — measured ~0% overhead, Metric 3 R1), and (b) lets the physical pool GROW on
+demand via `cuMemMap` instead of being pre-reserved (P0-C dynamic VA). The forking unit is
+an explicit Snapshot/Fork API at causal boundaries (agent branch points), not implicit
+content-hash dedup.
+
+### Integration path (engineering estimate)
+Three components change:
+
+1. **Block allocator -> VMM-backed pool (largest change, ~5-7 days).**
+   Replace vLLM's `CacheEngine` torch `kv_cache` tensors with VA ranges from a `VMMPool`
+   (our `src/vmm_pool.py`). Each KV block becomes a `cuMemMap` of a 2 MiB physical handle
+   at a fixed offset in the sequence's reserved VA range. vLLM block_size (16 tokens) is
+   much smaller than our 2 MiB page; either (a) raise vLLM block_size so 1 block = 1 page,
+   or (b) sub-allocate N vLLM blocks per VMM page (page is the CoW unit; block is the
+   scheduling unit). Recommend (b): keep vLLM's 16-token block for the scheduler, make
+   the CoW/sharing unit the 2 MiB page underneath.
+
+2. **BlockManager.fork_seq() Snapshot/Fork API (~3-4 days).**
+   Add `fork(parent_seq_id, child_seq_id)` to `KVCacheManager` that calls our
+   `KVBranchManager.snapshot()` + `fork()` to alias the parent's VMM pages into the child's
+   VA range (refcount++), instead of allocating + memcpy. The scheduler already tracks
+   per-seq block tables; the change is making "copy parent blocks to child" a VA alias
+   rather than a deep copy. CoW-on-write reuses our `_cow` page-fault path. Exposes
+   branch/replay to the serving API (a new `/fork` endpoint).
+
+3. **Scheduler accounting (~2-3 days).**
+   vLLM's scheduler budgets free blocks to admit requests. With VMM sharing, "free HBM"
+   must be computed from live *physical* pages (refcounted), not block-table entries, so
+   the scheduler can admit far more concurrent branches when they share a prefix (this is
+   exactly the Metric 4 6->N_cow capacity jump, surfaced to the scheduler). Plus a true-OOM
+   guard on `cuMemCreate`.
+
+### Risks / open questions for the patch
+- vLLM's CUDA graph capture pins KV tensor addresses; VA ranges must be stable across
+  `cuMemMap`/`cuMemUnmap` (they are — VA is reserved once; only physical backing changes),
+  but graph replay over a remapped page needs validation.
+- FlashAttention kernels assume contiguous KV; our VA range IS contiguous (Metric 3
+  confirms ~0% overhead), so this should hold, but multi-page-table TLB pressure at very
+  long contexts is unmeasured.
+- Interaction with vLLM's existing APC (content-hash CoW) — likely disable APC and let the
+  explicit Snapshot/Fork API own sharing, to avoid double-CoW.
+
+### Total estimate: ~10-14 engineering days for a working vLLM fork prototype (Option A).
+This is the v0.3 / camera-ready target. R1 ships the standalone mechanism + this sketch.
