@@ -1,0 +1,13 @@
+arm,N,prefix_tokens,prefix_pages,rep,n_rollbacks,isolation_verified,driver_handle_proof,sibling_bitidentical,rollback_bitidentical,rollback_cost_us,rollback_bytes_copied,cow_write_us,write_bytes_copied,fork_us,contiguous_va_preserved,notes
+ARM-HW,4,2048,1,0,3,1,1,1,1,254.1,0,448.62,2097152,146.78,1,handle_distinct=True;sib_handle==snap=True;cont_handle=444767408;sib_handle=441697520;snap_handle=441697520
+ARM-SW,4,2048,1,0,3,1,0,1,1,140.44,0,198.85,2097152,0.87,0,"software refcount bookkeeping only; no physical-handle proof; block-table indirection means unmodified FlashAttention cannot run -- isolation is bookkeeping-enforced, not MMU-enforced"
+ARM-HW,4,2048,1,1,3,1,1,1,1,249.73,0,457.77,2097152,147.07,1,handle_distinct=True;sib_handle==snap=True;cont_handle=100464256;sib_handle=441772752;snap_handle=441772752
+ARM-SW,4,2048,1,1,3,1,0,1,1,137.65,0,196.1,2097152,0.56,0,"software refcount bookkeeping only; no physical-handle proof; block-table indirection means unmodified FlashAttention cannot run -- isolation is bookkeeping-enforced, not MMU-enforced"
+ARM-HW,4,2048,1,2,3,1,1,1,1,242.71,0,459.58,2097152,141.08,1,handle_distinct=True;sib_handle==snap=True;cont_handle=444804384;sib_handle=100473248;snap_handle=100473248
+ARM-SW,4,2048,1,2,3,1,0,1,1,138.33,0,210.04,2097152,0.53,0,"software refcount bookkeeping only; no physical-handle proof; block-table indirection means unmodified FlashAttention cannot run -- isolation is bookkeeping-enforced, not MMU-enforced"
+ARM-HW,8,2048,1,0,3,1,1,1,1,246.39,0,485.47,2097152,125.77,1,handle_distinct=True;sib_handle==snap=True;cont_handle=444971488;sib_handle=444811440;snap_handle=444811440
+ARM-SW,8,2048,1,0,3,1,0,1,1,136.93,0,201.52,2097152,0.52,0,"software refcount bookkeeping only; no physical-handle proof; block-table indirection means unmodified FlashAttention cannot run -- isolation is bookkeeping-enforced, not MMU-enforced"
+ARM-HW,8,2048,1,1,3,1,1,1,1,245.49,0,460.51,2097152,123.12,1,handle_distinct=True;sib_handle==snap=True;cont_handle=445051168;sib_handle=444779920;snap_handle=444779920
+ARM-SW,8,2048,1,1,3,1,0,1,1,136.57,0,192.84,2097152,0.45,0,"software refcount bookkeeping only; no physical-handle proof; block-table indirection means unmodified FlashAttention cannot run -- isolation is bookkeeping-enforced, not MMU-enforced"
+ARM-HW,8,2048,1,2,3,1,1,1,1,248.44,0,452.46,2097152,124.37,1,handle_distinct=True;sib_handle==snap=True;cont_handle=444737872;sib_handle=445059328;snap_handle=445059328
+ARM-SW,8,2048,1,2,3,1,0,1,1,137.95,0,208.4,2097152,0.44,0,"software refcount bookkeeping only; no physical-handle proof; block-table indirection means unmodified FlashAttention cannot run -- isolation is bookkeeping-enforced, not MMU-enforced"

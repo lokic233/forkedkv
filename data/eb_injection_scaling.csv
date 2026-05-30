@@ -1,0 +1,46 @@
+engine,context_len,inject_pos_pct,ttft_cachehit_ms,ttft_contaminated_ms,penalty_ratio,stddev_hit_ms,stddev_cont_ms,reps,model,pre_tokens,post_tokens,notes
+vllm-0.6.6,4096,25,19.483,94.773,4.8644,0.286,1.043,5,Qwen/Qwen2.5-7B-Instruct,984,2952,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,4096,50,19.915,68.368,3.433,4.297,1.118,5,Qwen/Qwen2.5-7B-Instruct,1968,1968,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,4096,75,20.58,44.197,2.1476,0.972,0.501,5,Qwen/Qwen2.5-7B-Instruct,2952,984,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,8192,25,28.452,220.451,7.7482,0.205,2.371,5,Qwen/Qwen2.5-7B-Instruct,2008,6024,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,8192,50,37.901,163.278,4.308,2.715,4.575,5,Qwen/Qwen2.5-7B-Instruct,4016,4016,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,8192,75,28.976,91.584,3.1607,0.418,1.414,5,Qwen/Qwen2.5-7B-Instruct,6024,2008,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,16384,25,49.206,533.359,10.8393,4.796,5.609,5,Qwen/Qwen2.5-7B-Instruct,4056,12168,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,16384,50,46.138,387.186,8.392,0.952,2.538,5,Qwen/Qwen2.5-7B-Instruct,8112,8112,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,16384,75,46.821,227.454,4.8579,0.916,1.042,5,Qwen/Qwen2.5-7B-Instruct,12168,4056,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,24576,25,65.326,956.607,14.6436,0.85,1.642,5,Qwen/Qwen2.5-7B-Instruct,6104,18312,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,24576,50,64.873,712.015,10.9755,0.981,10.097,5,Qwen/Qwen2.5-7B-Instruct,12208,12208,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,24576,75,70.795,416.298,5.8804,19.976,4.622,5,Qwen/Qwen2.5-7B-Instruct,18312,6104,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,32768,25,88.223,1477.688,16.7496,0.793,9.256,5,Qwen/Qwen2.5-7B-Instruct,8152,24456,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,32768,50,88.995,1127.882,12.6736,140.827,6.347,5,Qwen/Qwen2.5-7B-Instruct,16304,16304,prefix-cache hash-chain break via mid-prompt UUID tool injection
+vllm-0.6.6,32768,75,88.701,672.156,7.5777,1.159,20.565,5,Qwen/Qwen2.5-7B-Instruct,24456,8152,prefix-cache hash-chain break via mid-prompt UUID tool injection
+sglang-0.5.12,4096,25,24.004,83.692,3.4866,0.303,0.982,5,Qwen/Qwen2.5-7B-Instruct,984,2952,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,4096,50,25.181,60.545,2.4044,0.244,1.417,5,Qwen/Qwen2.5-7B-Instruct,1968,1968,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,4096,75,25.044,43.425,1.7339,1.186,1.256,5,Qwen/Qwen2.5-7B-Instruct,2952,984,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,8192,25,35.727,181.09,5.0687,2.865,0.89,5,Qwen/Qwen2.5-7B-Instruct,2008,6024,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,8192,50,30.285,129.046,4.2611,0.202,0.991,5,Qwen/Qwen2.5-7B-Instruct,4016,4016,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,8192,75,31.531,77.63,2.462,1.889,0.689,5,Qwen/Qwen2.5-7B-Instruct,6024,2008,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,16384,25,41.975,406.826,9.6922,0.714,3.293,5,Qwen/Qwen2.5-7B-Instruct,4056,12168,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,16384,50,42.008,287.808,6.8512,3.784,1.853,5,Qwen/Qwen2.5-7B-Instruct,8112,8112,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,16384,75,40.728,174.869,4.2936,0.577,0.5,5,Qwen/Qwen2.5-7B-Instruct,12168,4056,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,24576,25,53.635,685.105,12.7735,0.559,2.705,5,Qwen/Qwen2.5-7B-Instruct,6104,18312,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,24576,50,55.219,492.323,8.9158,4.151,2.056,5,Qwen/Qwen2.5-7B-Instruct,12208,12208,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,24576,75,53.253,293.046,5.5029,0.806,1.883,5,Qwen/Qwen2.5-7B-Instruct,18312,6104,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,32768,25,63.139,1029.83,16.3104,1.063,4.796,5,Qwen/Qwen2.5-7B-Instruct,8152,24456,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,32768,50,67.175,731.465,10.889,1.682,10.118,5,Qwen/Qwen2.5-7B-Instruct,16304,16304,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+sglang-0.5.12,32768,75,65.838,426.643,6.4802,1.266,2.727,5,Qwen/Qwen2.5-7B-Instruct,24456,8152,RadixAttention prefix-cache break via mid-prompt UUID tool injection
+hf-transformers-5.6,4096,25,20.468,160.765,7.8545,28.721,12.518,5,Qwen/Qwen2.5-7B-Instruct,1004,3012,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,4096,50,20.871,118.338,5.6701,0.276,187.9,5,Qwen/Qwen2.5-7B-Instruct,2008,2008,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,4096,75,20.831,79.338,3.8086,0.407,10.553,5,Qwen/Qwen2.5-7B-Instruct,3012,1004,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,8192,25,29.011,315.213,10.8652,10.895,29.867,5,Qwen/Qwen2.5-7B-Instruct,2028,6084,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,8192,50,28.067,212.917,7.5861,1.144,12.95,5,Qwen/Qwen2.5-7B-Instruct,4056,4056,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,8192,75,28.831,128.893,4.4706,0.513,8.627,5,Qwen/Qwen2.5-7B-Instruct,6084,2028,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,16384,25,43.361,869.211,20.0458,10.701,62.115,5,Qwen/Qwen2.5-7B-Instruct,4076,12228,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,16384,50,42.346,579.601,13.6871,1.349,54.063,5,Qwen/Qwen2.5-7B-Instruct,8152,8152,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,16384,75,43.089,303.632,7.0467,0.928,31.41,5,Qwen/Qwen2.5-7B-Instruct,12228,4076,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,24576,25,54.332,1428.75,26.2965,9.482,10.49,5,Qwen/Qwen2.5-7B-Instruct,6124,18372,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,24576,50,54.488,1175.49,21.5734,0.209,88.405,5,Qwen/Qwen2.5-7B-Instruct,12248,12248,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,24576,75,54.254,592.893,10.9281,0.343,52.201,5,Qwen/Qwen2.5-7B-Instruct,18372,6124,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,32768,25,65.958,2262.614,34.3041,9.167,206.501,5,Qwen/Qwen2.5-7B-Instruct,8172,24516,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,32768,50,65.38,1833.763,28.0478,0.944,163.178,5,Qwen/Qwen2.5-7B-Instruct,16344,16344,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"
+hf-transformers-5.6,32768,75,65.637,914.868,13.9382,0.926,85.646,5,Qwen/Qwen2.5-7B-Instruct,24516,8172,"raw recompute: hit=suffix-only prefill, cont=(L-P) recompute from inject pt"

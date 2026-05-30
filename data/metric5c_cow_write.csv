@@ -12,4 +12,4 @@ B_page_unchanged,1
 A_page_changed,1
 page0_still_shared,1
 page2_still_shared,1
-cow_latency_us,1638.8357616961002
+cow_latency_us,564.7726356983185

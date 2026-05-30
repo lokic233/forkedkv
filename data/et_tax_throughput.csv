@@ -1,0 +1,17 @@
+arm,prefix_pages,fanout_B,throughput_tok_s,peak_hbm_mib,crashed,crash_call,reps,notes
+hw,256,4,102.31,10484.5,False,none,3,rep0:ok; rep1:ok; rep2:ok
+hw,256,16,75.13,10528.5,True,transient_cublas(1of3reps;NOT_ceiling),3,"rep0:ok; rep1:bdone=0; rep2:ok | NOTE: rep1 cublas_status_execution_failed transient, not cuMemSetAccess ceiling; 2/3 reps OK"
+hw,256,64,136.21,10724.5,False,none,3,rep0:ok; rep1:ok; rep2:ok
+hw,256,128,68.32,10856.5,True,cuMemSetAccess@B~63,3,rep0:bdone=117; rep1:ok; rep2:bdone=9
+hw,256,256,103.01,17638.5,True,cuMemSetAccess@B~210,3,rep0:ok; rep1:bdone=176; rep2:bdone=245
+hw,256,511,121.5,18024.5,True,cuMemSetAccess@B~360,3,rep0:bdone=379; rep1:bdone=126; rep2:bdone=360
+hw,256,919,121.37,18152.5,True,cuMemSetAccess_ceiling(illegal_access)@B~171,3,rep0:bdone=171; rep1:bdone=393; rep2:bdone=119
+hw,256,1124,120.49,30312.5,True,cuMemSetAccess@B~357,3,rep0:bdone=368; rep1:bdone=158; rep2:bdone=357
+sw,256,4,280.5,27872.5,False,none,3,rep0:ok; rep1:ok; rep2:ok
+sw,256,16,530.67,27872.5,False,none,3,rep0:ok; rep1:ok; rep2:ok
+sw,256,64,618.19,27874.5,False,none,3,rep0:ok; rep1:ok; rep2:ok
+sw,256,128,725.35,27876.5,False,none,3,rep0:ok; rep1:ok; rep2:ok
+sw,256,256,777.17,27880.5,False,none,3,rep0:ok; rep1:ok; rep2:ok
+sw,256,511,695.62,27874.5,False,none,3,rep0:ok; rep1:ok; rep2:ok
+sw,256,919,799.79,27876.5,False,none,3,rep0:ok; rep1:ok; rep2:ok
+sw,256,1124,734.51,27878.5,False,none,3,rep0:ok; rep1:ok; rep2:ok

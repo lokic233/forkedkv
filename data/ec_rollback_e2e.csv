@@ -1,0 +1,49 @@
+arm,prefix,prefix_tokens,N,R,decode_tokens,median_latency_ms,stddev_ms,peak_hbm_mib,max_branches,n_cow_events,model,notes
+hw_vmm_cow,long,4096,4,0,48,73.0712,0.0745,80.0,>=64(cap-limited),0,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,long,4096,4,0,48,340.9989,211.9982,78.0,>=64(cap-limited),0,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,long,4096,4,0,48,69.1944,0.0326,8.09,RAM-bound(>>HW),0,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,long,4096,4,0,48,1.7688,0.0068,8.09,RAM-bound(>>HW),0,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0347ms(batch=4) + measured sw bookkeeping 0.105ms
+hw_vmm_cow,long,4096,4,4,48,78.9426,135.2904,82.0,>=64(cap-limited),8,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,long,4096,4,4,48,347.9167,4.572,82.0,>=64(cap-limited),8,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,long,4096,4,4,48,69.1086,0.0139,8.09,RAM-bound(>>HW),16,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,long,4096,4,4,48,1.7217,0.0018,8.09,RAM-bound(>>HW),16,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0335ms(batch=4) + measured sw bookkeeping 0.113ms
+hw_vmm_cow,long,4096,4,16,48,91.1885,20.7252,80.0,>=64(cap-limited),8,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,long,4096,4,16,48,441.1922,51.3255,82.0,>=64(cap-limited),8,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,long,4096,4,16,48,69.8869,0.0631,8.09,RAM-bound(>>HW),64,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,long,4096,4,16,48,1.7692,0.0019,8.09,RAM-bound(>>HW),64,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0341ms(batch=4) + measured sw bookkeeping 0.133ms
+hw_vmm_cow,long,4096,16,0,48,291.7201,5.0829,-12731.56,>=64(cap-limited),0,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,long,4096,16,0,48,1321.014,41.7429,80.0,>=64(cap-limited),0,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,long,4096,16,0,48,274.9148,0.0856,8.09,RAM-bound(>>HW),0,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,long,4096,16,0,48,4.6471,0.002,8.09,RAM-bound(>>HW),0,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0897ms(batch=16) + measured sw bookkeeping 0.339ms
+hw_vmm_cow,long,4096,16,4,48,314.0216,4.636,80.0,>=64(cap-limited),32,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,long,4096,16,4,48,1375.2114,1909.1031,80.0,>=64(cap-limited),32,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,long,4096,16,4,48,273.7781,0.1459,8.09,RAM-bound(>>HW),64,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,long,4096,16,4,48,4.6977,0.0041,8.09,RAM-bound(>>HW),64,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0901ms(batch=16) + measured sw bookkeeping 0.373ms
+hw_vmm_cow,long,4096,16,16,48,352.4677,76.6181,80.0,>=64(cap-limited),32,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,long,4096,16,16,48,1615.1371,787.1889,80.0,>=64(cap-limited),32,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,long,4096,16,16,48,277.1314,0.0418,8.09,RAM-bound(>>HW),256,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,long,4096,16,16,48,4.7594,0.0038,8.09,RAM-bound(>>HW),256,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0897ms(batch=16) + measured sw bookkeeping 0.452ms
+hw_vmm_cow,short,512,4,0,48,59.0454,17.5879,76.0,>=64(cap-limited),8,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,short,512,4,0,48,652.689,292.6296,76.0,>=64(cap-limited),8,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,short,512,4,0,48,34.493,1.4424,1.09,RAM-bound(>>HW),0,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,short,512,4,0,48,1.3436,0.0013,1.09,RAM-bound(>>HW),0,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0274ms(batch=4) + measured sw bookkeeping 0.027ms
+hw_vmm_cow,short,512,4,4,48,62.2383,28.1457,76.0,>=64(cap-limited),8,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,short,512,4,4,48,308.1093,29.4046,76.0,>=64(cap-limited),8,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,short,512,4,4,48,30.9975,0.3892,1.09,RAM-bound(>>HW),16,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,short,512,4,4,48,1.3741,0.0014,1.09,RAM-bound(>>HW),16,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0279ms(batch=4) + measured sw bookkeeping 0.035ms
+hw_vmm_cow,short,512,4,16,48,63.5696,30.5699,76.0,>=64(cap-limited),8,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,short,512,4,16,48,323.0158,73.7166,76.0,>=64(cap-limited),8,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,short,512,4,16,48,30.8361,0.2046,1.09,RAM-bound(>>HW),64,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,short,512,4,16,48,1.3812,0.0018,1.09,RAM-bound(>>HW),64,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0277ms(batch=4) + measured sw bookkeeping 0.053ms
+hw_vmm_cow,short,512,16,0,48,243.6048,736.6527,76.0,>=64(cap-limited),32,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,short,512,16,0,48,1800.1131,589.6874,76.0,>=64(cap-limited),32,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,short,512,16,0,48,128.8514,1.9006,1.09,RAM-bound(>>HW),0,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,short,512,16,0,48,1.6241,0.0027,1.09,RAM-bound(>>HW),0,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0321ms(batch=16) + measured sw bookkeeping 0.085ms
+hw_vmm_cow,short,512,16,4,48,237.1196,7.4015,76.0,>=64(cap-limited),32,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,short,512,16,4,48,1961.3849,642.5405,76.0,>=64(cap-limited),32,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,short,512,16,4,48,129.4183,0.3432,1.09,RAM-bound(>>HW),64,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,short,512,16,4,48,1.6862,0.0052,1.09,RAM-bound(>>HW),64,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0326ms(batch=16) + measured sw bookkeeping 0.120ms
+hw_vmm_cow,short,512,16,16,48,263.3153,4.3967,76.0,>=64(cap-limited),32,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode over CoW KV + real driver CoW)
+hw_vmm_cow_fullfwd,short,512,16,16,48,1284.1667,588.1674,76.0,>=64(cap-limited),32,Qwen2.5-7B-Instruct-layer0,measured (full real-model forward per token)
+sw_prefix,short,512,16,16,48,119.9344,0.8481,1.09,RAM-bound(>>HW),256,Qwen2.5-7B-Instruct-layer0,measured (SDPA contig decode + sw block-table bookkeeping)
+flashinfer,short,512,16,16,48,1.7383,0.0035,1.09,RAM-bound(>>HW),256,Qwen2.5-7B-Instruct-layer0,ANALYTIC: 48 paged-steps@0.0322ms(batch=16) + measured sw bookkeeping 0.195ms
