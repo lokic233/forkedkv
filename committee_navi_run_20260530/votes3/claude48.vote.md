@@ -1,0 +1,5 @@
+T1: YELLOW — GREEN bar is gameable: A100+L40S are both NVIDIA/CUDA-VMM, so "the multiplicative FORM generalizes" can be confirmed within one driver stack and a reviewer reads it as an NVIDIA-VMM artifact, not a resource law. Fixable but not GREEN until a true cross-vendor point (MI300X/AMD) is mandatory.
+
+T2: GREEN — no unfixable flaw: even though the RoPE-invariant repairable subclass is likely near-trivial under post-RoPE KV caching (vLLM/SGLang bake rotary into cached K, so only boundary-appends remap), the sharpened claim measures that fraction, leaving a defensible 2-engine magnitude+taxonomy characterization that stands regardless. Repair is the weak leg; the paper survives without it.
+
+T3: YELLOW — central novelty ("prior assumes STATIC prefixes") is factually shaky against RadixAttention's dynamic radix-tree sharing; survives only as a priori-predictive-vs-runtime-opportunistic reframe, and the 15% out-of-sample bar can be met by a tautological shared-fraction baseline. Fixable (force beat-the-baseline + reframe delta), so not RED.

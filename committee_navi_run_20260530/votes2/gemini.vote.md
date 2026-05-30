@@ -1,0 +1,3 @@
+T1: YELLOW — If the invariant proves to be merely a tunable driver configuration constant, it represents a trivial vendor artifact easily patched out, not a fundamental capacity law worthy of ASPLOS.
+T2: YELLOW — Scoping the repair to "RoPE-safe" fixed-width edits cripples real-world utility, as external tool returns are overwhelmingly variable-length and will force downstream position shifts and recomputation regardless.
+T3: RED — Speculating the exact token outputs of dynamic external tool calls (e.g., SQL queries, file reads) to pre-compute KV cache is fundamentally unrealistic; achieving a >25% exact-token hit rate on variable I/O is impossible.
