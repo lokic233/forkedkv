@@ -29,6 +29,12 @@ a write triggers a per-page CoW remap. **The win is memory/capacity, not latency
   / 519,168 / 516,096; median **K ≈ 520K**). So the ceiling is a quantified, predictable
   trade-off: **max_branches ≈ 520,000 / prefix_pages** (the driver's per-device mapping-table
   capacity). [`data/metric4b_ceiling.csv`]
+- **Lab 1 (NEW) — ceiling is DRIVER-INTERNAL, not the Linux VMA sysctl:** at the 84-branch
+  OOM, `/proc/self/maps` holds **392 VMAs** vs `vm.max_map_count` = **67,108,864** (0.0006%
+  utilisation; even the kernel default of 65,530 would leave 167× headroom). 516K driver
+  mappings surface as *zero* new userspace VMAs and the OOM is on `cuMemSetAccess`, not
+  `mmap`. So the ceiling cannot be sysctl'ed away — it is a per-context table inside the
+  NVIDIA driver (H100, OKM `580.82.07`). [`data/lab1_vmmap_count.csv`, `LAB1_NOTES.md`]
 - **Bytes written (Metric 2b, R1 tail-divergence + exact %):** at realistic 5% / 10%
   per-branch TAIL divergence, CoW writes **95.0% / 90.0% fewer** KV bytes than full-clone;
   degrades to 0% at 100% divergence. [`data/metric2b_divergence.csv`]
@@ -285,6 +291,22 @@ prefix → ≈42 branches; a 512 MiB prefix → ≈2,000 branches), and knows th
 metadata — recyclable across an agent run via the VA free-list (Metric 4), not data HBM.
 Each sweep point ran in a fresh process (a driver OOM can leave the context undefined). The
 12 GiB row reproduces Metric 4's 84-branch result exactly. Figure: `figures/metric4b_ceiling.png`.
+
+**Lab 1 corollary (NEW) — the ceiling is driver-internal, not the Linux VMA sysctl.**
+A natural follow-up question is whether `K ≈ 520K` is gated by the kernel per-process
+VMA limit (`vm.max_map_count`). We instrumented the 12 GiB / 84-branch run, sampling
+`/proc/self/maps` line count after every 4 forks. At the OOM point: VMA count = **392**;
+`vm.max_map_count` = **67,108,864** (host pre-tuned; default 65,530 would still leave
+167× headroom). VMA utilisation: **0.0006%**. The 516,096 driver mappings produce
+effectively zero new userspace VMAs — they live in a driver-internal mapping table that
+is invisible to the kernel VM accounting, and the failing call is `cuMemSetAccess`
+(driver-side), not `mmap` (kernel-side). So the ceiling is **not** a tunable kernel
+parameter; it is a fixed per-context capacity inside the NVIDIA driver (H100, OKM
+`580.82.07`). This makes the `max_branches ≈ 520,000 / P` model *more* useful as a
+deployment heuristic — it cannot be sysctl'ed away, only engineered around (larger
+allocation granularity, VA-pool reuse, or future driver releases). Data:
+`data/lab1_vmmap_count.csv`, summary `data/lab1_vmmap_summary.txt`, write-up
+`LAB1_NOTES.md`.
 
 ### Metric 5 — Macro-benchmark on 24 real SWE-bench-Verified instances  [`data/metric5_e2e.csv`]
 

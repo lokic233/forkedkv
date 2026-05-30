@@ -1,0 +1,10 @@
+vm.max_map_count=67108864
+prefix_gib=12
+prefix_pages=6144
+branches_at_oom=84
+vma_at_oom=392
+oom_call=cuMemSetAccess
+oom=True
+K_product=516096
+vma_headroom=67108472
+vma_utilization_pct=0.0006
