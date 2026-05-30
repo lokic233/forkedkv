@@ -1,4 +1,4 @@
-# Forkable GPU Memory for Replayable Agent Execution — v0.2 Writeup (R1 revision)
+# Forkable GPU Memory for Replayable Agent Execution — v0.3 Writeup (R2 revision)
 
 **Hardware:** 1× NVIDIA H100 (97 GiB HBM), CUDA 12.8, driver 580.82, Python 3.12,
 torch 2.11.0+cu128, cuda-python (bindings 12.9.4). All numbers from `cli:devgpu014`,
@@ -12,35 +12,52 @@ the CUDA VMM driver API (cuMemCreate / cuMemMap / cuMemUnmap / cuMemRetainAlloca
 Forking an agent branch aliases the parent's physical HBM pages (refcounted, zero copy);
 a write triggers a per-page CoW remap. **The win is memory/capacity, not latency.**
 
-- **Capacity (Metric 4, R1 to true OOM):** with a 12 GiB shared prefix, naive full-clone
-  **OOMs at 6 branches** (live ~94.5 GiB); CoW reaches **84 branches before it too OOMs**
-  (live HBM flat at **12.0 GiB** the whole way). **The CoW ceiling is NOT data memory** —
-  84 branches use only 12 of 97 GiB — it is VA-reservation / page-table-mapping metadata
-  (each fork maps 6,144 VA pages). A 14× branch-capacity gain over full-clone, with
-  headroom for far more if VA/mapping were pooled. [`data/metric4_capacity.csv`]
+- **Capacity (Metric 4, R1 to true OOM; R2 forensic + VA pool):** with a 12 GiB shared
+  prefix, naive full-clone **OOMs at 6 branches** (live ~94.5 GiB); CoW reaches **84
+  concurrent branches before it too OOMs** (live HBM flat at **12.0 GiB**). **R2 (P0-2)
+  pins the failing call forensically: CoW's OOM is `cuMemSetAccess`** — it is
+  VA-mapping-metadata exhaustion (84 forks × 6,144 pages ≈ 516K live mappings), **NOT data
+  memory** (84 branches use only 12 of 97 GiB). R2 adds a process-wide **VA free-list**:
+  120 fork→destroy cycles ran with **only 10 VA reservations issued and 119 reused**, live
+  HBM flat at 12 GiB — so freed branch metadata is **recycled** and serial branch
+  throughput is unbounded; the concurrent ceiling is the per-mapping driver-metadata limit,
+  which we now name exactly. 14× concurrent gain over full-clone. [`data/metric4_capacity.csv`]
 - **Bytes written (Metric 2b, R1 tail-divergence + exact %):** at realistic 5% / 10%
   per-branch TAIL divergence, CoW writes **95.0% / 90.0% fewer** KV bytes than full-clone;
-  degrades to 0% at 100% divergence. (R1 fixes B3: 40-page prefix makes 5/10/25/50%
-  exact-integer page counts; P0-D switches writes to the TAIL.) [`data/metric2b_divergence.csv`]
+  degrades to 0% at 100% divergence. [`data/metric2b_divergence.csv`]
 - **Attention overhead (Metric 3, R1 fixed B2):** VMM-paged KV adds **−0.1% to +1.1%**
-  vs contiguous KV across seqlen 512–8192. The v0.1 +7.7% at 8192 was a GPU-clock/warmup
-  artifact: with interleaved contig/VMM timing per rep + median over n=50 (warmup 50), it
-  is **+0.05%** at 8192. Essentially zero overhead. [`data/metric3_attn_overhead.csv`]
+  vs contiguous KV across seqlen 512–8192 (+0.05% at 8192). Essentially zero overhead.
+  [`data/metric3_attn_overhead.csv`]
 - **Fork latency (Metric 1):** **NOT flat.** CoW fork latency grows ~linearly with
-  prefix length (per-page cuMemMap cost); it is ~1.32× faster than full-clone on average
-  but does not eliminate the per-page cost. [`data/metric1_fork_latency.csv`]
-- **Macro-benchmark (Metric 5, 7 real SWE-bench-Verified instances; memory mechanism over
-  real workload shapes):** ~90% fewer KV bytes written, ~80% lower peak HBM, **wall-time
-  ≈ parity (0.86–1.10×)**. [`data/metric5_e2e.csv`]
-- **End-to-end single-layer decode (Metric 5b, NEW in R1 — P0-A):** REAL autoregressive
-  token generation with one Qwen2.5-7B transformer layer, KV physically backed by CoW VMM
-  pages. N=16 branches, 4,096-token shared prefix, 128 real decode tokens each: **peak HBM
-  CoW 72 MiB vs clone 200 MiB (−64%)**, **KV bytes copied 0 vs 128 MiB**, **throughput 681
-  vs 680 tok/s (parity)**, and **decoded tokens are bit-identical CoW vs clone** (CoW-backed
-  attention == contiguous attention). [`data/metric5b_decode.csv`]
-- **CoW cost decomposition (B5, NEW in R1):** a single 2 MiB-page CoW takes ~176 µs median;
-  the unavoidable D2D copy is only **12.8 µs (7%)**, while the (removable) scratch-VA
-  bookkeeping is **82 µs (47%)**. **CoW is map-op bound, not copy bound.** [`data/cow_overhead.csv`]
+  prefix length (per-page cuMemMap cost); ~1.3× faster than full-clone but the map-op
+  floor is real. [`data/metric1_fork_latency.csv`]
+- **Macro-benchmark (Metric 5, R2: 24 real SWE-bench-Verified instances spanning the full
+  size distribution, 143–24,770 chars):** **89.9–90.1% fewer KV bytes written, 79.9–80.1%
+  lower peak HBM, wall-time ≈ parity (0.4–3.0×, noise)**. [`data/metric5_e2e.csv`]
+- **End-to-end MULTI-LAYER decode (Metric 5b, R2 P0-1 — was single-layer in R1):** REAL
+  autoregressive token generation with the **first 4 full transformer blocks** of
+  Qwen2.5-7B (attention + SwiGLU MLP + residuals per layer), KV physically backed by CoW
+  VMM pages, one per-branch K/V range **per layer**. N=16 branches, **3,000-token UNALIGNED
+  shared prefix** (B6 fix), 128 real decode tokens each: **peak HBM CoW 288 MiB vs clone
+  544 MiB (−47%)**, **all 16 branches bit-identical CoW vs clone (hard assert, P0-3)**,
+  decoded tokens **non-degenerate** (real LM flow), throughput **221 vs 187 tok/s**. The
+  unaligned prefix triggers **128 real partial-page CoW events (256 MiB copied)** — the R1
+  "0 bytes copied" was a page-alignment artifact (B6). [`data/metric5b_decode.csv`]
+- **CoW-on-write stress (Metric 5c, R2 P0-4 — NEW):** a tree-of-thought ROLLBACK that
+  overwrites a SHARED prefix page mid-decode fires CoW **exactly once**, copies **exactly 1
+  page (2 MiB), not the 3-page prefix**; the parent/sibling page is provably **uncorrupted**
+  (driver-handle + byte check), refcount drops 4→3, untouched prefix pages stay aliased.
+  All assertions pass. This exercises the mechanism's hot path the headline previously
+  skipped. [`data/metric5c_cow_write.csv`]
+- **CoW cost decomposition (B5/B8, R2):** a single 2 MiB-page CoW takes **~178 µs** median;
+  the unavoidable D2D copy is only **~13 µs (7%)**. **B8 NULL RESULT (correcting R1):** the
+  R1 claim that "47% is removable scratch-VA bookkeeping" was **WRONG** — pooling the
+  scratch VA (skipping the reserve+free pair) yields **only ~3%** because VA reserve+free
+  is just ~2–4 µs; the real cost is `cuMemSetAccess` (~50 µs) + `cuMemUnmap` (~30 µs) per
+  mapping, which a scratch pool cannot remove. We DID find a genuine optimization: a
+  **VA-swap CoW** (point the branch slot at the new page's VA, skip the dst remap) runs at
+  **~72 µs (~59% faster)** — but it breaks the contiguous-VA KV view, so it is usable only
+  where a single contiguous view isn't required. We report both honestly. [`data/cow_overhead.csv`]
 
 ---
 

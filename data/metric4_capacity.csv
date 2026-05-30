@@ -1,3 +1,4 @@
 method,prefix_gib,branches_succeeded,oom,note
-full_clone,12.0,6,True,live~94.5GiB
-cow_fork,12.0,84,True,live~12.0GiB
+full_clone,12.0,6,True,live~94.5GiB; oom_call=none
+cow_fork,12.0,84,True,live~12.0GiB; oom_call=cuMemSetAccess
+cow_churn_pooled,12.0,120,False,live~12.0GiB; reserved=10 reused=119 (VA recycled)

@@ -58,15 +58,16 @@ plt.title("Metric 3: Attention kernel overhead (fp16, 32 heads, n=30)")
 plt.legend(); plt.grid(alpha=0.3); plt.tight_layout()
 plt.savefig(os.path.join(F,"metric3_attn_overhead.png"), dpi=130); plt.close()
 
-# Fig 4: capacity bar
+# Fig 4: capacity bar (concurrent ceiling; churn row excluded — it's serial throughput)
 df = pd.read_csv(os.path.join(D, "metric4_capacity.csv"))
+dfc = df[df.method.isin(["full_clone","cow_fork"])]
 plt.figure(figsize=(5,4))
-bars = plt.bar(df.method, df.branches_succeeded, color=["C3","C0"])
-for b,oom in zip(bars, df.oom):
+bars = plt.bar(dfc.method, dfc.branches_succeeded, color=["C3","C0"])
+for b,oom in zip(bars, dfc.oom):
     plt.text(b.get_x()+b.get_width()/2, b.get_height()+0.5,
              "OOM" if oom else "cap", ha="center")
-plt.ylabel("Branches before OOM/cap")
-plt.title("Metric 4: Branch capacity on one H100\n(12 GiB shared prefix)")
+plt.ylabel("Concurrent branches before OOM")
+plt.title("Metric 4: Concurrent branch capacity on one H100\n(12 GiB shared prefix; CoW OOM is VA-metadata, not data)")
 plt.grid(axis="y", alpha=0.3); plt.tight_layout()
 plt.savefig(os.path.join(F,"metric4_capacity.png"), dpi=130); plt.close()
 
@@ -84,15 +85,15 @@ ax[1].bar([i+0.2 for i in x], df.clone_s*1e3, 0.4, label="Full clone", color="C3
 ax[1].set_ylabel("Wall time (ms)"); ax[1].set_xticks(list(x))
 ax[1].set_xticklabels(labels, rotation=45, ha="right", fontsize=7)
 ax[1].set_title("Branch wall time (~equal: CoW wins memory, not latency)"); ax[1].legend()
-plt.suptitle("Metric 5: End-to-end on 7 real SWE-bench-Verified instances (H100)")
+plt.suptitle(f"Metric 5: Macro-benchmark on {len(df)} real SWE-bench-Verified instances (H100)")
 plt.tight_layout(); plt.savefig(os.path.join(F,"metric5_e2e.png"), dpi=130); plt.close()
 
 print("wrote figures to", F)
 for fn in sorted(os.listdir(F)): print(" ", fn)
 
-# Fig 5b: real single-layer decode — peak HBM + bytes copied (P0-A)
+# Fig 5b: real MULTI-LAYER decode — peak HBM + bytes copied + tok/s (P0-1 R2)
 try:
-    df = pd.read_csv(os.path.join(D, "metric5b_decode.csv"))
+    df = pd.read_csv(os.path.join(D, "metric5b_decode.csv"), nrows=2)  # only the 2 regime rows
     fig, ax = plt.subplots(1, 3, figsize=(13, 4))
     regimes = ["cow_fork", "full_clone"]; colors = {"cow_fork":"C0","full_clone":"C3"}
     labels = {"cow_fork":"CoW fork","full_clone":"Full clone"}
@@ -107,24 +108,49 @@ try:
         ax[j].bar([labels[r] for r in regimes], vals, color=[colors[r] for r in regimes])
         ax[j].set_ylabel(ylab); ax[j].set_title(ttl); ax[j].grid(axis="y", alpha=0.3)
     N=int(df.n_branches.iloc[0]); P=int(df.prefix_tokens.iloc[0]); Dd=int(df.decode_tokens.iloc[0])
-    plt.suptitle(f"Metric 5b (P0-A): real single-layer decode over CoW KV\n"
-                 f"Qwen2.5-7B layer-0, N={N} branches, {P}-tok prefix, {Dd}-tok decode each (H100)")
+    NL=int(df.num_layers.iloc[0])
+    plt.suptitle(f"Metric 5b (P0-1 R2): real {NL}-LAYER decode over CoW KV\n"
+                 f"Qwen2.5-7B first {NL} layers, N={N} branches, {P}-tok UNALIGNED prefix, "
+                 f"{Dd}-tok decode each (H100); all branches bit-identical CoW vs clone")
     plt.tight_layout(); plt.savefig(os.path.join(F,"metric5b_decode.png"), dpi=130); plt.close()
 except Exception as e:
     print("fig5b skipped:", e)
 
-# Fig: CoW overhead decomposition (B5)
+# Fig 5c: CoW-on-write stress (P0-4 R2)
+try:
+    df = pd.read_csv(os.path.join(D, "metric5c_cow_write.csv"))
+    d = dict(zip(df.quantity, df.value))
+    plt.figure(figsize=(6,4))
+    cats = ["prefix size", "bytes copied"]
+    vals = [d["prefix_pages"]*2, d["bytes_copied_mib"]]   # MiB
+    bars = plt.bar(cats, vals, color=["C7","C1"])
+    for b,v in zip(bars, vals): plt.text(b.get_x()+b.get_width()/2, v+0.1, f"{v:.0f} MiB", ha="center")
+    plt.ylabel("MiB")
+    plt.title("Metric 5c (P0-4): CoW-on-write of a shared prefix page\n"
+              f"overwriting 1 of {int(d['prefix_pages'])} shared pages copies ONLY that page; "
+              "parent uncorrupted")
+    plt.grid(axis="y", alpha=0.3); plt.tight_layout()
+    plt.savefig(os.path.join(F,"metric5c_cow_write.png"), dpi=130); plt.close()
+except Exception as e:
+    print("fig5c skipped:", e)
+
+# Fig: CoW overhead decomposition (B5 + B8 R2)
 try:
     df = pd.read_csv(os.path.join(D, "cow_overhead.csv"))
-    order = ["full_cow","d2d_copy_only","scratch_va_bookkeeping_only"]
-    names = {"full_cow":"Full CoW","d2d_copy_only":"D2D copy\n(unavoidable)",
-             "scratch_va_bookkeeping_only":"Scratch-VA\nbookkeeping\n(removable)"}
-    vals = [df[df.component==c].ns_median.iloc[0]/1e3 for c in order]
-    plt.figure(figsize=(6,4))
-    bars = plt.bar([names[c] for c in order], vals, color=["C5","C2","C1"])
+    order = ["full_cow","full_cow_pooled_scratch","va_swap_cow","d2d_copy_only"]
+    names = {"full_cow":"Full CoW\n(R1 path)",
+             "full_cow_pooled_scratch":"+ scratch pool\n(B8 null:\n~3% only)",
+             "va_swap_cow":"VA-swap CoW\n(B8 win:\n~59%, breaks\ncontiguity)",
+             "d2d_copy_only":"D2D copy\n(unavoidable)"}
+    cols = {"full_cow":"C5","full_cow_pooled_scratch":"C8","va_swap_cow":"C2","d2d_copy_only":"C0"}
+    avail = [c for c in order if (df.component==c).any()]
+    vals = [df[df.component==c].ns_median.iloc[0]/1e3 for c in avail]
+    plt.figure(figsize=(7,4))
+    bars = plt.bar([names[c] for c in avail], vals, color=[cols[c] for c in avail])
     for b,v in zip(bars, vals): plt.text(b.get_x()+b.get_width()/2, v+1, f"{v:.0f}us", ha="center", fontsize=9)
     plt.ylabel("Median latency (us)")
-    plt.title("B5: CoW cost decomposition (2 MiB page, H100, n=300)\nCoW is map-op bound; D2D copy is only ~7%")
+    plt.title("B5/B8 (R2): CoW cost decomposition (2 MiB page, H100, n=300)\n"
+              "scratch pooling is a ~3% NULL; VA-swap is the real ~59% win (trade-off)")
     plt.grid(axis="y", alpha=0.3); plt.tight_layout()
     plt.savefig(os.path.join(F,"cow_overhead.png"), dpi=130); plt.close()
 except Exception as e:
