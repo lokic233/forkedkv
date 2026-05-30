@@ -26,3 +26,24 @@ CONSENSUS RULE: GREEN=6G, YELLOW=any Y & no R, RED=any R.
 The committee converged to 4-5 GREEN on all three; the lone holdout's REDs are bets about data.
 We have the hardware to settle two of them (AMD MI350X for T1 cross-vendor; H100 SGLang for T2).
 => Proceed to MVP validation experiments E1 (T1 AMD) and E2 (T2 SGLang).
+
+## ROUND 4 — re-vote on T2 ONLY, after E2 experiment (SGLang cross-engine evidence)
+| Thesis | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally | Status |
+|--------|-----|-----|-----|-------|------|--------|-------|--------|
+| T2 (post-E2) | YELLOW | GREEN | GREEN | GREEN | RED | YELLOW | 3G/2Y/1R | YELLOW |
+
+WHAT E2 RESOLVED: Muse Park's primary RED ("8.21x is a vLLM bug; SGLang won't show >5x") is
+EMPIRICALLY FALSIFIED and CONCEDED by Muse Park itself ("E2 torpedoes the >5x fairy tale").
+SGLang-7B reaches 12.77x @32K; the pathology is architectural & cross-engine. The WORKLOAD-MODEL
+half of T2 is now settled.
+
+WHAT SURVIVED (the committee converged on a NEW, precise, shared flaw):
+The REPAIR PRIMITIVE is unvalidated. 3 agents independently (claude48, gemini, metacode) raised
+the SAME objection: the mid-prompt injection E2 measured is a POSITION-SHIFTING edit = exactly the
+RoPE-NON-invariant subclass that the VMM pointer-swap CANNOT repair, and nobody has measured what
+fraction of REAL agent tool-call edits fall in the repairable (RoPE-invariant) subclass. The
+repair is vLLM-only, not ported to SGLang.
+
+=> T2 is YELLOW (1 RED blocks GREEN, but the RED narrowed from "whole thesis is a bug" to
+   "repair half unvalidated"). The workload-model contribution alone is now defensible.
+   Next experiment E3 (defined below) directly tests the surviving flaw.

@@ -10,7 +10,7 @@ This is the system working as designed: experiment beats consensus.
 | Thesis | Tally (R3) | Status | Why not GREEN |
 |--------|-----------|--------|---------------|
 | T1 Mapping-table = schedulable NVIDIA-VMM resource | 4G/1Y/1R | YELLOW->demote | E1: 520K does NOT reproduce on AMD (>=6.4M, zero fail). Reframe as NVIDIA-scoped; then likely 6/6. |
-| T2 Mid-prompt invalidation pathology + bounded repair | 5G/1R | YELLOW | Needs E2 (SGLang >5x?) to settle Muse Park's "vLLM-bug" RED. Strongest candidate. |
+| T2 (post-E2) | 3G/2Y/1R | YELLOW | Workload-model SETTLED cross-engine (SGLang 12.77x). Surviving flaw: repair-subclass fraction unmeasured (E3). |
 | T3 Agentic KV-divergence workload model | 4G/2Y | YELLOW | No RED. Risk: model may be trivially monotonic; needs >=3-harness fit (E3). |
 
 ## STRONGEST PATH TO A REAL GREEN (next 7 days)

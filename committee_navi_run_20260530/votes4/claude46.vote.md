@@ -1,0 +1,1 @@
+T2: GREEN — E2 falsifies the blocking RED: SGLang-7B hits 12.77x @32K, exceeding vLLM's 8.21x at comparable context, confirming the pathology is architectural (prefix-hash append-only assumption) not engine-specific. Repair portability is honestly scoped as future work, not claimed.
