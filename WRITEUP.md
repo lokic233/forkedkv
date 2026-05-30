@@ -119,22 +119,41 @@ CoW unit = one VMM physical page = `CU_MEM_ALLOC_GRANULARITY_MINIMUM` = **2 MiB*
 
 ---
 
-## CoW cost decomposition (B5, NEW in R1)  [`data/cow_overhead.csv`]
+## CoW cost decomposition (B5 R1 + B8 R2 correction)  [`data/cow_overhead.csv`]
 
-`bench/bench_cow_overhead.py` (n=300, CUDA-event + perf_counter) decomposes one 2 MiB-page
-CoW event:
+`bench/bench_cow_overhead.py` (n=300, perf_counter bracketed by cuCtxSynchronize — B7: the
+R1 docstring wrongly said "CUDA-event + perf_counter"; only perf_counter is used, which is
+correct for these host-side driver-call-bound paths) decomposes one 2 MiB-page CoW event:
 | component | median |
 |-----------|--------|
-| full CoW (create + scratch map + D2D + remap branch VA) | **175.7 us** |
+| full CoW (R1 path: create + scratch reserve/map/unmap/free + remap branch VA) | **178.3 us** |
+| + reusable scratch-VA pool (B8: skip scratch reserve+free) | **173.4 us (only 3% faster)** |
+| VA-swap CoW (B8: point slot at new VA, skip dst remap) | **72.4 us (59% faster)** |
 | - unavoidable D2D copy (2 MiB) | **12.8 us (7%)** |
-| - scratch-VA bookkeeping (reserve+map+unmap+free; removable, LIMITATIONS #2) | **82.2 us (47%)** |
+| - scratch-VA bookkeeping (reserve+map+unmap+free) | **83.4 us (47% of full CoW)** |
 
-**CoW is map-op bound, not copy bound.** The 2 MiB data copy is a trivial 7%; ~half the
-cost is the temporary-scratch-VA path that LIMITATIONS #2 flagged (an in-place remap scheme
-would eliminate it), the rest is the branch-VA unmap+remap. This explains why fork/CoW
-wall-time (Metrics 1, 5, 5b) is at parity with full-clone: both are dominated by driver map
-operations, not byte movement. It also names the next optimization (reusable scratch VA ->
-~47% faster CoW). Figure: `figures/cow_overhead.png`. (microbenchmark)
+**B8 — IMPORTANT R2 CORRECTION OF AN R1 OVERCLAIM.** R1 claimed the 47% scratch-VA
+bookkeeping was *removable* via a reusable scratch VA, projecting CoW from 175.7→~93 µs.
+**We built it (R2-D3: an 8-slot scratch-VA pool in `KVBranchManager`) and the hypothesis was
+WRONG.** Pooling the scratch VA only removed ~3% (178.3→173.4 µs). Forensic breakdown of the
+83 µs "scratch bookkeeping": cuMemAddressReserve+cuMemAddressFree are only **~2–4 µs**; the
+real cost is **cuMemSetAccess ~50 µs + cuMemUnmap ~30 µs**, which a scratch pool *cannot*
+remove (every new physical handle must be mapped+access-set to copy into it, and SetAccess
+does not persist across remap — verified). The R1 "47% removable" claim is retracted.
+
+**A genuine optimization DOES exist — VA-swap CoW — but with a trade-off.** Instead of
+`unmap(dst); map(dst,new); SetAccess(dst)`, we map the new page at a fresh VA, copy, and
+let the branch slot *point at the new VA* (returning the old VA to the pool). This skips the
+dst remap and runs at **72.4 µs (59% faster)**. The cost: the page lands at a non-contiguous
+VA, breaking the single-contiguous-VA KV view that the zero-copy torch view and Metric 3's
+~0% overhead depend on. So VA-swap is a real latency win **only for workloads that don't need
+one contiguous KV view across the branch** (e.g. a block-table-indexed kernel like vLLM's).
+We report both, and DID NOT adopt VA-swap in the headline decode (which needs contiguity).
+
+**CoW is map-op bound, not copy bound** (the 2 MiB copy is 7%) — that conclusion stands. What
+changes in R2: the dominating map ops are `cuMemSetAccess`+`cuMemUnmap`, not the scratch
+reserve/free, so the cheap pooling optimization R1 promised does not exist. Figure:
+`figures/cow_overhead.png`. (microbenchmark)
 
 ## The five metrics (with exact, cited numbers)
 
@@ -200,67 +219,159 @@ contiguous, the kernel sees ordinary memory; indirection is in the page table. F
 
 ### Metric 4 — Capacity on one H100  [`data/metric4_capacity.csv`]
 12 GiB shared prefix (6,144 × 2 MiB pages). Run in separate processes to isolate HBM.
-**R1 (P1-A): swept to TRUE OOM — the 64 cap is removed.**
-- **full-clone: 6 branches, then CUDA_ERROR_OUT_OF_MEMORY** (live ~94.5 GiB).
-- **CoW: 84 branches, then CUDA_ERROR_OUT_OF_MEMORY** — but **live HBM stayed flat at
-  12.0 GiB** the entire sweep.
-→ CoW reaches **84** branches vs full-clone's **6** — a **14× capacity gain** on one H100.
-**Key R1 finding:** CoW's OOM is NOT data memory (84 branches use only 12 of 97 GiB). It is
-**VA-reservation / page-table-mapping metadata**: each fork maps 6,144 VA pages, so 84
-branches ≈ 516K live mappings. The data-memory ceiling is far higher; pooling/reusing VA
-ranges (a known optimization, not done in R1) would push the branch count up substantially.
-We report the measured 84 honestly as the *current-implementation* ceiling. Figure:
+**R1 swept to TRUE OOM; R2 (P0-2) adds forensic OOM attribution + a VA free-list.**
+- **full-clone: 6 branches, then CUDA_ERROR_OUT_OF_MEMORY** (live ~94.5 GiB; data-driven).
+- **CoW: 84 concurrent branches, then CUDA_ERROR_OUT_OF_MEMORY** — live HBM flat at
+  **12.0 GiB** the entire sweep.
+→ CoW reaches **84** concurrent branches vs full-clone's **6** — a **14× capacity gain**.
+
+**R2 P0-2 forensic finding (gemini R2-3):** we annotated every driver call with its call
+site (`vmm_pool.CudaCallError`). **The CoW OOM is the call `cuMemSetAccess`** — confirming
+the ceiling is **VA / page-table-mapping metadata, not data memory** (84 branches use only
+12 of 97 GiB; each fork maps 6,144 pages → ≈516K live mappings at 84 branches). This is now
+*measured evidence* (which call returns CUDA_ERROR_OUT_OF_MEMORY), not inference.
+
+**R2 P0-2 VA free-list:** `VMMPool` keeps a process-wide free-list of reserved VA ranges
+keyed by size; `KVBranchManager.destroy_branch` unmaps a branch's pages (freeing HBM at
+refcount 0) and returns its VA range to the pool for reuse. A 120-cycle fork→destroy churn
+(>> the 84 concurrent ceiling) issued **only 10 cuMemAddressReserve calls and reused 119**,
+with live HBM flat at 12.0 GiB. So **freed branch metadata is recycled**: serial branch
+throughput is unbounded, and the 84 is specifically the *concurrent* mapping-metadata
+ceiling. Pooling does NOT raise the concurrent count (84 live branches free nothing), and we
+do not claim it does — but it bounds total VA growth across an agent run. Figure:
 `figures/metric4_capacity.png`. **This is the headline result.**
 
-### Metric 5 — Macro-benchmark on 7 real SWE-bench-Verified instances  [`data/metric5_e2e.csv`]
+### Metric 5 — Macro-benchmark on 24 real SWE-bench-Verified instances  [`data/metric5_e2e.csv`]
 
 (R1 P0-B: renamed from "End-to-end" to "Macro-benchmark" — this metric runs the real
 fork/clone/CoW MEMORY mechanism over real-workload-derived prefix sizes, but KV is filled
-synthetically here. The REAL token-generation end-to-end is the new Metric 5b below.)
+synthetically here. The REAL token-generation end-to-end is Metric 5b below.)
+**R2 (P1-A): expanded N=7 → N=24 instances** stratified across the FULL SWE-bench-Verified
+problem-statement size distribution (143 → 24,770 chars; median 1,187 ≈ the full-set median
+1,185; 7 repos: django, sympy, scikit-learn, matplotlib, astropy, xarray, pylint).
 Prefix sized from real instance text (sys prompt + 6k-token repo context + problem
 statement, 128 KiB KV/token for a 32-layer GQA-8 fp16 7B-class model), fanout 8, 10%
-divergence. Across all 7 instances:
+divergence. Across all **24** instances:
 - KV bytes-written reduction: **89.9%–90.1%**
 - Peak HBM reduction: **79.9%–80.1%**
-- Wall-time speedup: **0.86×–1.10× (≈ parity)**
+- Wall-time: **0.4×–3.0× (≈ parity; the few outliers are wall-clock noise on ~250 ms runs)**
 
-**Honest finding:** CoW does **not** beat full-clone on wall time end-to-end at these
-prefix sizes (430–570 pages); per-page map cost ≈ D2D copy cost. The win is the ~80%
-lower HBM footprint, which is what enables Metric 4's 6→84 capacity jump. Figure:
+**Honest finding:** CoW does **not** reliably beat full-clone on wall time end-to-end at
+these prefix sizes (428–813 pages); per-page map cost ≈ D2D copy cost. The win is the ~80%
+lower HBM footprint, which is what enables Metric 4's 6→84 capacity jump. The reduction is
+**remarkably stable across the 24× size span**, confirming it is structural (prefix-share +
+10% tail divergence), not an artifact of the R1 7-instance sample. Figure:
 `figures/metric5_e2e.png`. NOT a full token-generation run (LIMITATIONS #3).
 
-### Metric 5b — End-to-end single-layer decode (NEW in R1, P0-A)  [`data/metric5b_decode.csv`]
-A REAL autoregressive decode loop using **one real transformer layer** (layer 0 of
-**Qwen2.5-7B-Instruct**: 28 q-heads / 4 KV-heads GQA, head_dim 128, RoPE θ=1e6, RMSNorm;
-weights loaded from safetensors), with the per-branch KV cache **physically backed by the
-CoW VMM pages**. Each decode step does real embed → RMSNorm → q/k/v projection (+bias) →
-RoPE → append K/V into CoW pages → SDPA over the branch's full KV → o_proj residual →
-lm_head logits → greedy next token. (`src/decode_layer.py`, `bench/bench_metric5b_decode.py`.)
+### Metric 5b — End-to-end MULTI-LAYER decode (R2 P0-1; was single-layer in R1)  [`data/metric5b_decode.csv`]
+A REAL autoregressive decode loop using the **first 4 full transformer blocks** of
+**Qwen2.5-7B-Instruct** (28 q / 4 KV heads GQA, head_dim 128, RoPE θ=1e6, RMSNorm, **SwiGLU
+MLP**, attention+MLP residuals; weights from safetensors), with **each layer's** per-branch
+K/V cache **physically backed by CoW VMM pages** (one BranchKV per layer per branch, so a
+forked child aliases ALL 4 layers' prefix pages with zero copy). Each decode step runs the
+full N-layer stack: embed → for li in 0..3 [ln1 → q/k/v proj+bias → RoPE → append K/V to
+layer li's CoW pages → GQA SDPA → attn residual → ln2 → SwiGLU MLP → MLP residual] → final
+norm → tied lm_head → next token. (`src/decode_layer.py:QwenLayerN`, `bench/bench_metric5b_decode.py`.)
 
-Workload: N=16 branches forked from a **4,096-token shared prefix**, each decoding **128
-new tokens** (2,048 generated tokens total). CoW (fork+append) vs full-clone (deep-copy the
+Workload: N=16 branches forked from a **3,000-token UNALIGNED shared prefix** (B6: 2,048
+tokens/page for GQA-4, so 3,000 lands 952 tokens into page 2 — a partially-filled SHARED
+page that the first decode token overwrites, forcing real CoW), each decoding **128 new
+tokens** (2,048 generated total). CoW (fork+append) vs full-clone (deep-copy every layer's
 prefix KV, then decode):
 
 | metric | CoW fork | full clone | delta |
 |--------|----------|-----------|-------|
-| peak live HBM | **72 MiB** | 200 MiB | **−64%** |
-| KV bytes physically copied | **0 MiB** | 128 MiB | −100% |
-| decode throughput | 681 tok/s | 680 tok/s | ≈ parity |
-| branch-0 decoded tokens | — | — | **bit-identical CoW vs clone** |
+| peak live HBM | **288 MiB** | 544 MiB | **−47%** |
+| KV bytes physically copied | **256 MiB (128 CoW events)** | 512 MiB | −50% |
+| decode throughput | **221 tok/s** | 187 tok/s | CoW 1.18× |
+| ALL 16 branches' decoded tokens | — | — | **bit-identical CoW vs clone (hard assert)** |
 
-**What this proves:** the CoW-aliased VMM pages support a REAL attention computation with
-REAL model weights, producing **bit-identical** output to a full clone, while sharing the
-prefix's HBM (zero bytes copied — decode appends to private tail pages and never overwrites
-the shared prefix). Throughput is compute-bound, so CoW and clone are at parity — consistent
-with the rest of the prototype: **the win is memory, not latency.**
+**What this proves (reviewer C1 — "single layer is a toy"):** the CoW-aliased VMM pages
+support a REAL multi-layer attention+MLP computation with REAL model weights, producing
+**bit-identical output to a full clone for ALL 16 branches** (P0-3 hard assert across every
+branch, not a branch-0 print; per-branch blake2b token checksums in the CSV), while sharing
+the prefix's HBM. The decoded tokens are **non-degenerate** — with 4 real layers + a
+deterministic full-history repetition penalty (a standard decoding rule that keeps CoW vs
+clone bit-identical), branch-0's 128 tokens are not a single fixed point (vs R1's
+single-layer degenerate all-one-token sequence). Throughput slightly favors CoW here because
+full-clone pays an up-front 512 MiB deep-copy that CoW skips.
 
-**HONEST CAVEATS (LIMITATIONS #3, #12):** (1) ONE layer, not the full 28 — this validates
-the memory mechanism under real attention compute, NOT full-model throughput or generation
-quality. (2) A single layer has no real language-modeling signal, so greedy decode produces
-a degenerate fixed-point token sequence (all 4321 in this run). That is expected and
-irrelevant to the systems claim; we report tok/s, HBM, and bytes-copied, not text quality.
-(3) tok/s is single-layer; a full 28-layer model does ~28× more work per token. Figure:
-`figures/metric5b_decode.png`.
+**B6 — the R1 "0 bytes copied" was a page-alignment ARTIFACT, now fixed.** R1 used a 4,096-
+token prefix = exactly 2 pages, so decode only ever appended to fresh tail pages and CoW
+never fired → "0 bytes copied". With the unaligned 3,000-token prefix, the first decode
+token of each branch overwrites the partially-filled shared boundary page, firing **128 real
+partial-page CoW events** (one per branch's first decode step), **256 MiB copied** — the
+genuine cost is now measured and reported.
+
+**HONEST CAVEATS (LIMITATIONS #3, #12):** (1) 4 of 28 layers — validates the memory
+mechanism composes across a real multi-layer stack, NOT full-model throughput or generation
+quality. (2) Tokens are produced under a deterministic repetition penalty to break the
+truncated-model greedy attractor; we report SYSTEMS quantities + bit-identical correctness,
+not text quality. (3) tok/s is 4-layer; a full 28-layer model does ~7× more work per token.
+Figure: `figures/metric5b_decode.png`.
+
+### Metric 5c — CoW-on-write decode stress (R2 P0-4 — NEW)  [`data/metric5c_cow_write.csv`]
+Metrics 5/5b are append-dominated; Metric 5c exercises the mechanism's **hot path**: a
+branch OVERWRITING a SHARED prefix page mid-decode — a tree-of-thought rollback / speculative
+context edit. Using one real Qwen2.5-7B layer over a 3-page (6,144-token) shared prefix,
+forked into two children A and B (each aliasing the prefix, refcount 4 on the target page).
+Child A overwrites a SHARED interior prefix page. Measured + **asserted**:
+- `_cow` fired **exactly once**; **exactly 1 page (2 MiB) copied**, NOT the 3-page prefix.
+- target page refcount **4 → 3**; A de-aliases the parent (driver-handle check True→False).
+- **child B's / parent's page is byte-for-byte UNCHANGED** (parent context not corrupted).
+- A's page bytes CHANGED (the edit took effect, privately).
+- the OTHER two prefix pages (0 and 2) **stay aliased** A==parent — CoW is per-page.
+
+All assertions pass. This is the write-after-share semantics that distinguishes our mechanism
+from read-only prefix dedup (see vLLM-APC comparison below). Figure: `figures/metric5c_cow_write.png`.
+
+---
+
+## Comparison vs vLLM Automatic Prefix Caching (APC) — analytic (R2 P1-B)  [no new data file; design analysis]
+
+The strongest baseline is NOT "naive full-clone" — it is vLLM's existing prefix sharing
+(Automatic Prefix Caching / block-table sharing). A reviewer (codex) correctly noted that
+without this comparison the headline reads "we beat the worst baseline." We address it
+analytically (per the R2 brief recommendation; a real vLLM patch is the v0.4+ deployment
+path sketched in `prototype_status.md`).
+
+**What vLLM APC does.** vLLM stores KV in fixed 16-token **blocks** in a pre-allocated torch
+pool, indexed per-sequence by a **block table** (logical block → physical block id). APC
+hashes block *contents*; sequences sharing an identical prefix point their block tables at
+the same physical block ids (read-only share). On a write to a shared block, vLLM does a
+block-granularity **copy-on-write** (allocate a new block, copy 16 tokens, repoint the block
+table). So vLLM APC is *already a CoW system* — at the block-table level over a pre-reserved
+pool.
+
+**What our VMM CoW adds over vLLM APC (the three structural differences):**
+
+1. **Write-after-share at the page table, with explicit fork points.** APC shares are
+   *content-hash, read-mostly* and dedup-oriented; our Snapshot/Fork is an **explicit causal
+   fork** at an agent branch point, and the write-after-share path (Metric 5c) is a
+   first-class operation, not an incidental APC copy. This is what replayable/forkable agent
+   execution needs: deliberately diverging a *copy* of a context you chose to branch.
+2. **No block-table indirection in the attention kernel.** APC's kernel must gather KV
+   through the per-sequence block table (PagedAttention's defining cost). Our VA range is
+   **contiguous**, so the SDPA kernel sees ordinary memory — Metric 3 measures **~0%
+   overhead** (−0.1% to +1.1%) vs a contiguous tensor. We share physically (same driver
+   handle) while keeping the kernel's view contiguous. APC cannot do both.
+3. **Growable physical pool.** APC shares within a *pre-reserved* torch pool fixed at
+   startup; it cannot grow physical KV past that reservation. Our pool grows on demand via
+   `cuMemMap` (`append_page`, P0-C) and reserves VA without committing HBM.
+
+**What vLLM APC does BETTER, honestly:** (a) 16-token blocks → far finer CoW granularity
+than our 2 MiB page (≈8K tokens for GQA-4), so APC copies less on a small divergence and is
+not subject to our page-alignment partial-page CoW (B6). (b) APC is *deployed, battle-tested,
+and integrated with the scheduler*; we are a standalone prototype. (c) APC's content-hash
+dedup finds sharing opportunities ours (explicit-fork-only) does not.
+
+**Net analytic position.** Against vLLM APC our advantage is **kernel-transparent physical
+sharing (0% attn overhead) + explicit forkable/write-after-share semantics + a growable
+pool**; APC's advantage is **fine block granularity + production maturity**. The honest
+framing for the paper: VMM CoW is the right substrate when you need *explicit, kernel-
+transparent, growable* branch forking (agent replay / tree-of-thought), not a drop-in win
+over APC for ordinary prefix dedup. We have **not** benchmarked against a running vLLM
+(LIMITATIONS #13); the comparison above is analytic.
 
 ---
 

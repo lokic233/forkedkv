@@ -194,3 +194,35 @@ R2 targets 4-of-4 GREEN. Decisions made up front:
   P1-A: pull 17 more SWE-Bench-Verified instances spanning the real size distribution
   (median 1185 chars, max 24770) → N=24. P1-B: analytic comparison vs vLLM APC /
   block-table prefix sharing in WRITEUP (analytic-only per brief recommendation).
+
+---
+
+## R2 status update (round 2 complete)
+
+- WORKS (added R2):
+  - P0-1: REAL MULTI-LAYER decode (4 full Qwen2.5-7B blocks, attn+SwiGLU+residuals), each
+    layer's KV on CoW pages. `decode_layer.QwenLayerN` + `MultiLayerBranchKV`. N=16 branches,
+    3000-tok UNALIGNED prefix, 128 decode: peak HBM CoW 288 vs clone 544 MiB (47%), tok/s 221
+    vs 187, ALL 16 branches bit-identical, non-degenerate tokens.
+  - P0-2: VA free-list in vmm_pool (process-wide, keyed by size) + per-call-site OOM
+    annotation (`CudaCallError`). Metric 4: CoW OOM forensically = `cuMemSetAccess`; VA
+    free-list recycles (120 fork/destroy cycles, reserved=10 reused=119, live HBM flat 12GiB).
+  - P0-3: HARD correctness assert across ALL branches (was branch-0 print); per-branch
+    blake2b token checksums + first-mismatch index in metric5b_decode.csv.
+  - P0-4: Metric 5c CoW-on-write stress — overwrite shared prefix page mid-decode; all
+    assertions pass (1 CoW event, 1 page copied, refcount 4->3, parent uncorrupted).
+  - B6: unaligned prefix -> 128 real CoW events / 256 MiB copied (R1 "0 bytes" artifact gone).
+  - B7: bench_cow_overhead docstring fixed (perf_counter, not CUDA events).
+- FIXED / RETRACTED (R2):
+  - B8: R1 "47% removable scratch-VA bookkeeping" claim RETRACTED — built it, only ~3% (the
+    cost is SetAccess+Unmap, not reserve/free). Real win = VA-swap CoW (59%) but it breaks
+    contiguous-VA view; not adopted in headline. Honest correction in WRITEUP + LIMITATIONS.
+  - P1-A: Metric 5 N=7 -> N=24 instances spanning 143-24770 chars; 90%/80% reduction stable.
+  - P1-B: vLLM APC analytic comparison section added to WRITEUP.
+- STILL MOCKED: Metric 5 (macro) synthetic fill; cross-domain RNG/TOOL host-sim.
+- STILL NOT DONE: full 28-layer model; real vLLM patch (analytic only); multi-GPU;
+  SWE-bench harness run; concurrent-capacity beyond 84 (mapping-metadata ceiling is real).
+
+## Metric status (R2): 7 of 7 measured (5c added). Memory/capacity strong; latency at
+## parity (honest); attn overhead ~0%; correctness hard-asserted; one R1 overclaim (B8)
+## retracted with measured evidence.
