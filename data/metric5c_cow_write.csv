@@ -1,0 +1,15 @@
+quantity,value
+did_cow,1
+cow_events,1
+bytes_copied_mib,2.0
+pages_copied,1
+prefix_pages,3
+refcount_before,4
+refcount_after,3
+A_aliased_parent_before,1
+A_aliased_parent_after,0
+B_page_unchanged,1
+A_page_changed,1
+page0_still_shared,1
+page2_still_shared,1
+cow_latency_us,1638.8357616961002

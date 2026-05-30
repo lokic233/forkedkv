@@ -179,3 +179,125 @@ class BranchKV:
         Kv[:, self.seq, :] = k
         Vv[:, self.seq, :] = v
         self.seq += 1
+
+
+# =====================================================================================
+# P0-1 (R2): MULTI-LAYER decode. N=4 FULL transformer blocks (attention + SwiGLU MLP),
+# each with its OWN per-branch CoW-backed K/V pages. This proves the CoW mechanism
+# composes across a real layer stack and produces NON-DEGENERATE tokens (real residual
+# + MLP language-modeling flow), answering reviewer C1 ("single layer is a toy").
+# =====================================================================================
+class QwenLayerN:
+    """First N full transformer blocks of Qwen2.5-7B-Instruct + embed + final norm + tied
+    lm_head, fp16 on cuda. Each block: input_layernorm -> GQA attention (per-layer KV) ->
+    residual -> post_attention_layernorm -> SwiGLU MLP -> residual."""
+    def __init__(self, num_layers=4, device="cuda", dtype=torch.float16):
+        from safetensors import safe_open
+        snap = _snap_dir()
+        self.cfg = json.load(open(os.path.join(snap, "config.json")))
+        self.N = num_layers
+        self.n_q = self.cfg["num_attention_heads"]
+        self.n_kv = self.cfg["num_key_value_heads"]
+        self.hidden = self.cfg["hidden_size"]
+        self.hd = self.hidden // self.n_q
+        self.inter = self.cfg["intermediate_size"]
+        self.theta = self.cfg.get("rope_theta", 1e6)
+        self.eps = self.cfg.get("rms_norm_eps", 1e-6)
+        self.dtype = dtype; self.device = device
+        shard = os.path.join(snap, "model-00001-of-00004.safetensors")
+        norm_shard = os.path.join(snap, "model-00004-of-00004.safetensors")
+        want_layers = set(range(num_layers))
+        w = {}
+        with safe_open(shard, framework="pt", device=device) as f:
+            for k in f.keys():
+                if k == "model.embed_tokens.weight":
+                    w[k] = f.get_tensor(k).to(dtype)
+                elif k.startswith("model.layers."):
+                    li = int(k.split(".")[2])
+                    if li in want_layers:
+                        w[k] = f.get_tensor(k).to(dtype)
+        with safe_open(norm_shard, framework="pt", device=device) as f:
+            w["model.norm.weight"] = f.get_tensor("model.norm.weight").to(dtype)
+        self.embed = w["model.embed_tokens.weight"]
+        self.norm_f = w["model.norm.weight"]
+        self.L = []   # per-layer weight dict
+        for li in range(num_layers):
+            p = f"model.layers.{li}."
+            self.L.append(dict(
+                ln1=w[p+"input_layernorm.weight"],
+                ln2=w[p+"post_attention_layernorm.weight"],
+                wq=w[p+"self_attn.q_proj.weight"], bq=w[p+"self_attn.q_proj.bias"],
+                wk=w[p+"self_attn.k_proj.weight"], bk=w[p+"self_attn.k_proj.bias"],
+                wv=w[p+"self_attn.v_proj.weight"], bv=w[p+"self_attn.v_proj.bias"],
+                wo=w[p+"self_attn.o_proj.weight"],
+                gate=w[p+"mlp.gate_proj.weight"], up=w[p+"mlp.up_proj.weight"],
+                down=w[p+"mlp.down_proj.weight"]))
+        self.inv_freq = 1.0 / (self.theta ** (torch.arange(0, self.hd, 2, device=device).float() / self.hd))
+
+    def _rmsnorm(self, x, weight):
+        x32 = x.float()
+        x32 = x32 * torch.rsqrt(x32.pow(2).mean(-1, keepdim=True) + self.eps)
+        return (x32 * weight.float()).to(self.dtype)
+
+    def _rope(self, x, pos):
+        ang = pos * self.inv_freq
+        cos = torch.cos(ang); sin = torch.sin(ang)
+        cos = torch.cat([cos, cos]); sin = torch.cat([sin, sin])
+        x1 = x[..., : self.hd // 2]; x2 = x[..., self.hd // 2:]
+        rot = torch.cat([-x2, x1], dim=-1)
+        return (x.float() * cos + rot.float() * sin).to(self.dtype)
+
+    @torch.no_grad()
+    def project(self, li, h, pos):
+        """Layer li: input_layernorm + q/k/v projection + RoPE. Returns (q,k,v) for this
+        token. h is the residual-stream hidden state ENTERING layer li."""
+        Lw = self.L[li]
+        x = self._rmsnorm(h, Lw["ln1"])
+        q = (x @ Lw["wq"].T + Lw["bq"]).view(self.n_q, self.hd)
+        k = (x @ Lw["wk"].T + Lw["bk"]).view(self.n_kv, self.hd)
+        v = (x @ Lw["wv"].T + Lw["bv"]).view(self.n_kv, self.hd)
+        q = self._rope(q, pos); k = self._rope(k, pos)
+        return q, k, v
+
+    @torch.no_grad()
+    def attend_mlp(self, li, h, q, K_all, V_all):
+        """Layer li: GQA attention over this layer's KV + residual + SwiGLU MLP + residual.
+        Returns the hidden state EXITING layer li (input to layer li+1)."""
+        Lw = self.L[li]
+        rep = self.n_q // self.n_kv
+        K = K_all.repeat_interleave(rep, dim=0)
+        V = V_all.repeat_interleave(rep, dim=0)
+        Q = q.unsqueeze(1)
+        o = F.scaled_dot_product_attention(Q, K, V).reshape(self.n_q * self.hd)
+        h = h + (o @ Lw["wo"].T)                          # attention residual
+        # SwiGLU MLP
+        xn = self._rmsnorm(h, Lw["ln2"])
+        gate = F.silu((xn @ Lw["gate"].T).float()).to(self.dtype)
+        up = xn @ Lw["up"].T
+        mlp = (gate * up) @ Lw["down"].T
+        h = h + mlp                                        # MLP residual
+        return h
+
+    @torch.no_grad()
+    def logits_of(self, h):
+        return self._rmsnorm(h, self.norm_f) @ self.embed.T
+
+
+class MultiLayerBranchKV:
+    """Per-branch, per-LAYER K/V backed by CoW VMM pages. Holds one BranchKV per layer.
+    Each layer gets its own pair of VMM branches (K range + V range) inside the shared
+    KVBranchManager, so a forked child aliases ALL layers' prefix pages with zero copy."""
+    def __init__(self, mgr, n_layers, n_kv, hd, prefix_id, reset=True):
+        self.mgr = mgr; self.n_layers = n_layers
+        self.layers = []
+        for li in range(n_layers):
+            kid, vid = f"{prefix_id}_L{li}K", f"{prefix_id}_L{li}V"
+            self.layers.append(BranchKV(mgr, n_kv, hd, kid, vid, reset=reset))
+
+    @property
+    def seq(self):
+        return self.layers[0].seq
+
+    def set_seq(self, s):
+        for bkv in self.layers:
+            bkv.seq = s
