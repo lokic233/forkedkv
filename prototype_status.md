@@ -35,7 +35,18 @@ Hardware: 1× H100 97 GiB, CUDA 12.8, driver 580.82, torch 2.11.0+cu128, cuda-py
 - No vLLM integration. No SWE-bench harness run. No multi-GPU. No real model weights.
 - CoW capacity ceiling unknown (hit self-imposed cap of 64, not hardware OOM).
 
-## Metric status: 5 of 5 measured (4 hit/within target; fork-latency target missed honestly).
+## R1 status update
+- WORKS (added R1): real single-layer decode over CoW KV (Metric 5b, P0-A) — bit-identical
+  to clone; dynamic VA `append_page()` (P0-C, test_dynamic_va.py passes); CoW cost
+  decomposition (B5); Metric 4 true OOM at 84 branches (P1-A); blake2b replay hash (B4).
+- FIXED (R1): Metric 3 8192 overhead 7.7%->0.05% (B2 interleaved+median); Metric 2b exact
+  integer divergence + tail writes (B3, P0-D); Metric 2 bytes formula consistency (B1).
+- STILL MOCKED: Metric 5 (macro) synthetic fill; cross-domain RNG/TOOL host-sim.
+- STILL NOT DONE: full multi-layer model; vLLM patch (Option A — sketch only, P1-B);
+  multi-GPU; SWE-bench harness run; CoW in-place remap optimization (measured, not built).
+
+## Metric status: 6 of 6 measured (Metric 5b decode added in R1). Memory/capacity claims
+## strong; latency at parity (honestly reported); attention overhead ~0%.
 
 
 ---
