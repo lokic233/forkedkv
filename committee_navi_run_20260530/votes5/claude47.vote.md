@@ -1,0 +1,1 @@
+T2: GREEN — E3's per-class RoPE-boundary cost separation (0.9-2.4x invariant vs 3-13.6x shifting, cross-model) settles the Round-4 vacuity objection; incidence in real traces is honest future work, not a thesis-killing flaw.

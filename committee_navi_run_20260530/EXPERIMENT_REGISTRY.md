@@ -25,3 +25,23 @@ vLLM-7B (edmm prior): 8.21x. At 16K, SGLang-7B (8.34x) ~ vLLM-7B (8.21x).
 
 ## E4 (deferred) — T1 AMD true ceiling (binary search) once MI350X out of maintenance.
 ## E5 (deferred) — T3 multi-harness divergence distributions.
+
+## E3 — T2 edit-type taxonomy (RoPE-invariant subclass vacuous?). DONE. Killed R4 flaw.
+SGLang live, per-class TTFT vs cache hit @16K: append 0.9-0.96x, fixed-width 1.3-2.4x (INVARIANT)
+vs var-insert 2.99-8.21x, prepend 4.55-13.63x (SHIFTING). Cross-model. Repairable class NON-vacuous.
+
+## E4 (NEXT) — IMPLEMENT the VMM pointer-remap repair + measure it as an intervention.
+- Hypothesis: a real pointer-remap on the RoPE-invariant subclass recovers TTFT to <=1.3x C0 (vs
+  the 2.4-8.2x recompute it replaces), measured end-to-end on a live engine, not inferred.
+- Why: Muse Park + claude48 + codex all demand the repair be BUILT and measured as intervention.
+  edmm has a vLLM-side pointer-swap (58us) but it's not wired to the RoPE-invariant edit classes
+  from E3. E4 = port edmm's swap to the E_fixed/E_append classes and measure recovered TTFT.
+- Min success (-> T2 GREEN candidate): measured repaired-TTFT <=1.3x C0 on E_fixed @7B, vs 2.38x
+  unrepaired. If repair doesn't beat recompute, the primitive is honestly dead and T2 ships
+  workload-model-only.
+
+## E5 (NEXT) — real-trace edit-class FREQUENCY census.
+- Needs real agent tool-call trajectories (SWE-agent/OpenHands runs). Classify each KV-mutating
+  edit as append / fixed-width / variable-insert. Report distribution.
+- Min success: report the distribution honestly; >=20% in repairable classes strengthens the
+  primitive's addressable surface. (No on-disk traces; requires generating agent runs first.)

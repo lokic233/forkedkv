@@ -47,3 +47,26 @@ repair is vLLM-only, not ported to SGLang.
 => T2 is YELLOW (1 RED blocks GREEN, but the RED narrowed from "whole thesis is a bug" to
    "repair half unvalidated"). The workload-model contribution alone is now defensible.
    Next experiment E3 (defined below) directly tests the surviving flaw.
+
+## ROUND 5 — re-vote on T2 after E3 (edit-type taxonomy experiment)
+| Thesis | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally | Status |
+|--------|-----|-----|-----|-------|------|--------|-------|--------|
+| T2 (post-E3) | YELLOW | GREEN | GREEN | YELLOW | RED | YELLOW | 2G/3Y/1R | YELLOW |
+
+WHAT E3 RESOLVED: the Round-4 "repairable subclass is vacuous" objection is DEAD. E3 showed
+RoPE-invariant edits (append 0.9-0.96x, fixed-width 1.3-2.4x) are 3-14x cheaper than
+position-shifting edits (3-13.6x), cross-model. Muse Park conceded vacuity.
+
+SURVIVING FLAW (committee converged again, even tighter): TWO build-required items remain:
+  (1) an ACTUALLY-IMPLEMENTED VMM pointer-remap repair, measured as an intervention (not just the
+      recompute cost it avoids) -- raised by Muse Park, claude48, codex.
+  (2) real-trace edit-class FREQUENCY census -- raised by all.
+Both require BUILDING, not arguing. The thesis framing now survives; what's left is engineering
++ measurement, defined precisely by E4/E5 below.
+
+## EVOLUTION OF THE HOLDOUT'S OBJECTION (the loop working):
+  R3: "8.21x is a vLLM bug, SGLang won't show >5x"   -> killed by E2 (SGLang 12.77x)
+  R4: "repairable RoPE-invariant subclass is vacuous" -> killed by E3 (0.9x vs 8-13x, tracks RoPE)
+  R5: "repair not implemented + real-trace incidence unknown" -> E4/E5 (build + census)
+Each experiment killed one objection and surfaced the next-deepest. T2 is now a defined build spec,
+not a framing dispute. Workload-model half: SETTLED. Runtime-primitive half: spec'd, not built.

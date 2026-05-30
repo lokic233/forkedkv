@@ -1,0 +1,7 @@
+GRAN=4096 MAXB=2000000 (P=1, shared 1-page handle)
+b=0 live_mappings=1 hbm_free_GiB=286.64
+b=500000 live_mappings=500001 hbm_free_GiB=286.64
+b=1000000 live_mappings=1000001 hbm_free_GiB=286.64
+b=1500000 live_mappings=1500001 hbm_free_GiB=286.64
+CEILING P=1 max_branches=2000000 failing_call=HIT_MAXB
+(no manual cleanup — process exit reclaims)

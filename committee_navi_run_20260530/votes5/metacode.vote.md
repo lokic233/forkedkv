@@ -1,0 +1,3 @@
+67 skills discovered
+T2: RED — E3 is a recompute-cost microbenchmark, not a VMM pointer-remap implementation; the repair remains unbuilt and unmeasured, and real-world edit-class frequency is still unknown, so the “runtime primitive” is unvalidated snake oil for the position-shifting tool outputs that dominate actual agent traces.
+T2: RED — E3 is a recompute-cost microbenchmark, not a VMM pointer-remap implementation; the repair remains unbuilt and unmeasured, and real-world edit-class frequency is still unknown, so the “runtime primitive” is unvalidated snake oil for the position-shifting tool outputs that dominate actual agent traces.
