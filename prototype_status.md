@@ -10,9 +10,12 @@ Hardware: 1× H100 97 GiB, CUDA 12.8, driver 580.82, torch 2.11.0+cu128, cuda-py
   full-sequence cloning for a fair comparison.
 - **D2: 1× H100 (device 0).** Multi-GPU not attempted (bonus).
 - **D3: CoW unit = one VMM physical page = 2 MiB (CU_MEM_ALLOC_GRANULARITY_MINIMUM).**
-- **D4: Page-fault-on-write is software-detected** (manager checks refcount>1 before a
-  write), with a REAL GPU MMU remap (cuMemUnmap+cuMemMap to a new handle). CUDA VMM does
-  not expose user-level write-protect faults on device mappings. See LIMITATIONS.md #1.
+- **D4: Software-mediated CoW with driver-level remap.** The KV manager checks
+  refcount>1 in software before a write; if shared, it triggers a REAL GPU MMU remap
+  (cuMemUnmap + cuMemMap + cuMemSetAccess to a new handle). CUDA VMM does not expose
+  user-level write-protect faults on device mappings, so detection is software, not a
+  hardware page fault. We retract the earlier "page-fault-on-write" phrasing
+  (R4 P0-3); see LIMITATIONS.md #1, #16 and WRITEUP §"Honest framing".
 - **Model sizing:** KV shapes use Llama-3.1-8B / Qwen2.5-7B class params (32 layers,
   GQA-8, head_dim 128, fp16). We did NOT load model weights; no token generation.
 

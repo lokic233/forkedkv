@@ -16,10 +16,12 @@ Fork(snapshot, new_branch_id) -> ForkHandle
     Reserve a new VA range for the child, map each child VA page to the SAME physical
     page as the snapshot (refcount++). No KV bytes copied. O(#pages).
 
-write(branch_id, page_index, ...) -> triggers CoW if the target page is shared
-    Software page-fault-on-write: if the physical page backing (branch, page_index)
-    has refcount>1, allocate a private page, copy 2 MiB, remap that one VA page,
-    decref the shared page. Only the touched page diverges.
+write(branch_id, page_index, ...) -> triggers software-detected CoW if shared
+    The KV manager checks refcount>1 in software BEFORE the write — CUDA does not
+    expose hardware write-protect faults to user mode. If shared, allocate a private
+    page, copy 2 MiB, remap that one VA page (cuMemUnmap+cuMemMap+cuMemSetAccess),
+    decref the shared page. We do NOT call this "page-fault-on-write": detection is
+    software, only the remap is hardware/driver work.
 
 Divergence detector: compares two branches page-by-page by retained driver handle;
 pages with different handles have physically diverged.
@@ -205,7 +207,7 @@ class KVBranchManager:
                 br.page_phys[i] = None
         self.pool.free_va(br.va_base, br.va_size, num_pages=br.capacity)
 
-    # ---- CoW write (software page-fault-on-write) ----
+    # ---- CoW write (software-detected, driver-level remap) ----
     def write_page(self, branch_id, page_index, host_bytes=None, fill_value=None):
         """Write to a page. If the page is shared (refcount>1) perform CoW first.
         Returns True if a CoW copy happened."""

@@ -13,9 +13,13 @@ copy-on-write of KV-cache pages:
 CoW unit = one physical page = CU_MEM_ALLOC_GRANULARITY_MINIMUM (2 MiB on H100).
 
 Forking a branch does NOT copy KV bytes: reserve new VA, map each new VA page to the
-SAME physical handle as the parent (refcount++). A write to a shared page triggers a
-software page-fault (KV manager) that allocates a private handle, copies 2 MiB, and
-remaps that single VA page. OS-style CoW over the GPU MMU.
+SAME physical handle as the parent (refcount++). A write to a shared page is detected
+in software (the KV manager checks refcount>1 BEFORE issuing the write); the manager
+then allocates a private handle, copies 2 MiB, and remaps that single VA page via
+cuMemUnmap+cuMemMap+cuMemSetAccess. The DETECTION is software (CUDA does not expose
+write-protect page faults to user mode); the REMAP is real driver/MMU-level work.
+We call this "software-mediated CoW with driver-level physical-page remap" — NOT
+"page-fault-on-write." See WRITEUP.md §"Honest framing".
 """
 import ctypes
 from cuda import cuda

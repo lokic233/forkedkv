@@ -53,9 +53,14 @@ CSV: `data/lab1_vmmap_count.csv`. One-line summary: `data/lab1_vmmap_summary.txt
    to register read/write permission on each (VA-page, phys-handle, device) triple.
    That table is what is full.
 
-So `K ≈ 520K` is **NVIDIA's per-process / per-context mapping-table capacity** on
-H100 + driver 580.82.07. It is a fixed driver constant under our test conditions,
-not a tunable kernel parameter.
+So `K ≈ 520K` is **consistent with a per-context mapping-metadata capacity inside
+the NVIDIA driver** (H100 + driver 580.82.07 in our setup). It is a structural
+limit not tunable from userspace; the ceiling is independent of `vm.max_map_count`
+(which retains >99.9% headroom) and manifests exclusively within the CUDA VMM
+driver's `cuMemSetAccess` path. We do not claim to know the driver's internal
+data structure (it is closed-source); we report what we measured: the failing
+call is `cuMemSetAccess`, the kernel VM accounting is essentially unchanged, and
+the ceiling is reproducible across prefix sizes.
 
 ## Implications for the paper
 

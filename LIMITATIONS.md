@@ -119,12 +119,37 @@ Read this before trusting any number in WRITEUP.md.
     graph replays. We did NOT integrate with a CUDA-Graph-capturing engine; this is a documented
     constraint for the deployment path, not a measured result.
 
-13. **vLLM APC comparison is ANALYTIC, not benchmarked (R2 P1-B).** WRITEUP compares our VMM
-    CoW vs vLLM Automatic Prefix Caching / block-table sharing on design grounds (kernel-
-    transparent physical sharing + explicit forkable write-after-share + growable pool, vs
-    APC's finer block granularity + production maturity). We did NOT run a head-to-head
-    benchmark against a live vLLM. A real vLLM patch is the v0.4+ deployment path
-    (`prototype_status.md`).
+13. **vLLM APC comparison: analytic in R2; EMPIRICAL software-equivalent baseline added in
+    R4 P0-1.** R2 compared us vs vLLM Automatic Prefix Caching on design grounds (the
+    "Comparison vs vLLM APC" §). R4 P0-1 added a head-to-head implementation
+    (`src/baseline_prefix_sharing.py`, `bench/bench_software_baseline.py`) — a vLLM-APC-
+    style block-table allocator with refcounted blocks. Result: software is ~700× faster
+    on fork latency, ~6× larger on capacity at 32-page prefix, and tied on CoW
+    granularity at our default sizing (and finer in production). We do NOT win on those
+    axes against the strong baseline. The ONE remaining ForkedKV advantage is
+    kernel-transparent contiguous VA (Metric 3 ≈ 0% overhead) — software prefix sharing
+    requires a paged-attention kernel; we do not. We have NOT benchmarked against a live
+    vLLM (only against our own vLLM-APC-equivalent simulation in `baseline_prefix_sharing.py`).
+
+16. **The original "OS-style CoW" / "page-fault-on-write" framing is RETRACTED (R4 P0-3).**
+    Earlier drafts called this "OS-style CoW over the GPU MMU" and labelled the write
+    detection a "software page fault." Both phrasings overstate the analogy: CUDA does
+    not expose hardware write-protect faults to user-mode programs, so detection is a
+    software refcount check, NOT a hardware fault. The correct framing is
+    "software-mediated CoW with driver-level physical-page remap." See WRITEUP §"Honest
+    framing — what is and isn't OS-like." Source comments in `vmm_pool.py` and
+    `kv_branch_manager.py` were updated to match.
+
+17. **Append-only decode acknowledgment (R4 P0-4).** Standard autoregressive batched
+    decode is dominated by appends to the KV tail; the only page where CoW fires under
+    pure append is the boundary page. Mid-prefix CoW writes need a workload that
+    *mutates* existing KV — speculative-decoding rollback, tree-of-thought branch-and-
+    edit (Metric 5c), tool-call retries, sliding-window/context-compression eviction,
+    or backtracking reasoning. We claim the CoW-on-write capability is right for those
+    workloads (and forward-looking for the rest), NOT that it is essential for vanilla
+    chat-completion serving — for that regime, vLLM APC's read-mostly prefix dedup is
+    sufficient. See WRITEUP §"Workload justification — when does CoW-on-write actually
+    fire?".
 
 ## Reproducibility caveats
 

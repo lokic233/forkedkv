@@ -1,0 +1,3 @@
+method,scenario,bytes_copied,cow_unit_bytes,tokens_per_unit
+software,1-token write -> 1-block CoW,2097152,2097152,16
+hardware_vmm,1-token write -> 1-page CoW,2097152,2097152,16

@@ -5,12 +5,30 @@ torch 2.11.0+cu128, cuda-python (bindings 12.9.4). All numbers from `cli:devgpu0
 device 0. Every claim cites a data file under `data/` and is reproducible via a script
 under `bench/` (see README.md). Raw run log: `experiment_log.jsonl`.
 
-## TL;DR (honest)
+## TL;DR (honest, R4 repositioned)
 
 We built branch-aware copy-on-write of attention KV-cache pages on the **GPU MMU** using
 the CUDA VMM driver API (cuMemCreate / cuMemMap / cuMemUnmap / cuMemRetainAllocationHandle).
 Forking an agent branch aliases the parent's physical HBM pages (refcounted, zero copy);
-a write triggers a per-page CoW remap. **The win is memory/capacity, not latency.**
+a write to a shared page is detected in software and triggers a driver-level per-page
+remap. **The contribution is NOT a practical capacity win over the strong software
+baseline (vLLM APC / RadixAttention).** R4 measured this directly: against a vLLM-APC-
+style block-table allocator, software is ~700× faster on fork latency and ~6× larger on
+capacity at a 32-block prefix (`data/baseline_compare_*.csv`). What survives is two
+narrower contributions:
+
+1. **Forensic architectural characterization of GPU VMM for branching workloads** —
+   the driver mapping ceiling K ≈ 520K, its independence from `vm.max_map_count`,
+   `cuMemSetAccess` as the OOM call site, the predictable max_branches ≈ K/P model,
+   VA-pool reuse, partial-page CoW waste — all of which are useful regardless of
+   whether anyone deploys this exact mechanism (Metrics 4, 4b, Lab 1).
+2. **Physical KV sharing exposed to the kernel as a contiguous virtual address.** The
+   ONE thing software prefix sharing cannot do: standard FlashAttention/SDPA work
+   unmodified on a forked branch (Metric 3: ~0% kernel overhead). vLLM APC's block
+   table requires PagedAttention. We sidestep that engineering tax.
+
+We retract the earlier "OS-style CoW" / "page-fault-on-write" framing (R4 P0-3): write
+detection is software, not a hardware GPU page fault — see §"Honest framing".
 
 - **Capacity (Metric 4, R1 to true OOM; R2 forensic + VA pool):** with a 12 GiB shared
   prefix, naive full-clone **OOMs at 6 branches** (live ~94.5 GiB); CoW reaches **84
@@ -29,12 +47,16 @@ a write triggers a per-page CoW remap. **The win is memory/capacity, not latency
   / 519,168 / 516,096; median **K ≈ 520K**). So the ceiling is a quantified, predictable
   trade-off: **max_branches ≈ 520,000 / prefix_pages** (the driver's per-device mapping-table
   capacity). [`data/metric4b_ceiling.csv`]
-- **Lab 1 (NEW) — ceiling is DRIVER-INTERNAL, not the Linux VMA sysctl:** at the 84-branch
-  OOM, `/proc/self/maps` holds **392 VMAs** vs `vm.max_map_count` = **67,108,864** (0.0006%
-  utilisation; even the kernel default of 65,530 would leave 167× headroom). 516K driver
-  mappings surface as *zero* new userspace VMAs and the OOM is on `cuMemSetAccess`, not
-  `mmap`. So the ceiling cannot be sysctl'ed away — it is a per-context table inside the
-  NVIDIA driver (H100, OKM `580.82.07`). [`data/lab1_vmmap_count.csv`, `LAB1_NOTES.md`]
+- **Lab 1 (NEW) — ceiling is independent of the Linux VMA sysctl:** at the 84-branch
+  OOM, `/proc/self/maps` holds **392 VMAs** vs `vm.max_map_count` = **67,108,864**
+  (0.0006% utilisation; even the kernel default of 65,530 would leave 167× headroom).
+  The 516K driver mappings produce zero new userspace VMAs and the failing call is
+  `cuMemSetAccess`, not `mmap`. **The ceiling is independent of `vm.max_map_count`
+  (which retains >99.9% headroom) and manifests exclusively within the CUDA VMM
+  driver's `cuMemSetAccess` path. This is consistent with a per-context
+  mapping-metadata capacity in the NVIDIA driver (~520K entries on H100, driver
+  580.82.07) — a structural limit not tunable from userspace.**
+  [`data/lab1_vmmap_count.csv`, `LAB1_NOTES.md`]
 - **Bytes written (Metric 2b, R1 tail-divergence + exact %):** at realistic 5% / 10%
   per-branch TAIL divergence, CoW writes **95.0% / 90.0% fewer** KV bytes than full-clone;
   degrades to 0% at 100% divergence. [`data/metric2b_divergence.csv`]
@@ -97,9 +119,14 @@ logic). Validated by `src/test_primitives.py` (passes):
   a CoW write they return **different** handles.
 - **Reference counting:** parent.page0 refcount = 5 after snapshot + 3 forks; drops to 4
   after one child does CoW. Releases physical handle at refcount 0.
-- **Page-fault-on-write:** write to a shared page (refcount>1) triggers `_cow`: allocate
-  private handle, D2D-copy 2 MiB, remap that one VA page, decref shared. Only the touched
-  page diverges; siblings stay aliased. (Software-detected; see LIMITATIONS.md #1.)
+- **Software-detected CoW with driver-level remap (NOT a hardware page fault):** write
+  to a shared page (refcount>1) triggers `_cow`: allocate private handle, D2D-copy 2 MiB,
+  remap that one VA page (cuMemUnmap+cuMemMap+cuMemSetAccess), decref shared. Only the
+  touched page diverges; siblings stay aliased. We deliberately do NOT call this
+  "page-fault-on-write" — CUDA does not expose hardware write-protect faults to user
+  mode. The DETECTION is a software refcount check before the write; the REMAP is real
+  driver/MMU-level work. See §"Honest framing — what is and isn't OS-like" below and
+  LIMITATIONS.md #1.
 - **Dynamic VA growth (NEW in R1, P0-C):** `append_page()` grows a branch's KV tail by one
   fresh private page as decode emits tokens — the structural capability real agents need.
   VA is reserved with headroom (reservation costs no HBM; only `cuMemMap` commits memory);
@@ -292,7 +319,7 @@ metadata — recyclable across an agent run via the VA free-list (Metric 4), not
 Each sweep point ran in a fresh process (a driver OOM can leave the context undefined). The
 12 GiB row reproduces Metric 4's 84-branch result exactly. Figure: `figures/metric4b_ceiling.png`.
 
-**Lab 1 corollary (NEW) — the ceiling is driver-internal, not the Linux VMA sysctl.**
+**Lab 1 corollary (NEW) — the ceiling is independent of the Linux VMA sysctl.**
 A natural follow-up question is whether `K ≈ 520K` is gated by the kernel per-process
 VMA limit (`vm.max_map_count`). We instrumented the 12 GiB / 84-branch run, sampling
 `/proc/self/maps` line count after every 4 forks. At the OOM point: VMA count = **392**;
@@ -300,11 +327,14 @@ VMA limit (`vm.max_map_count`). We instrumented the 12 GiB / 84-branch run, samp
 167× headroom). VMA utilisation: **0.0006%**. The 516,096 driver mappings produce
 effectively zero new userspace VMAs — they live in a driver-internal mapping table that
 is invisible to the kernel VM accounting, and the failing call is `cuMemSetAccess`
-(driver-side), not `mmap` (kernel-side). So the ceiling is **not** a tunable kernel
-parameter; it is a fixed per-context capacity inside the NVIDIA driver (H100, OKM
-`580.82.07`). This makes the `max_branches ≈ 520,000 / P` model *more* useful as a
-deployment heuristic — it cannot be sysctl'ed away, only engineered around (larger
-allocation granularity, VA-pool reuse, or future driver releases). Data:
+(driver-side), not `mmap` (kernel-side). **The ceiling is independent of
+`vm.max_map_count` (which retains >99.9% headroom) and manifests exclusively within
+the CUDA VMM driver's `cuMemSetAccess` path. This is consistent with a per-context
+mapping-metadata capacity in the NVIDIA driver (~520K entries on H100, driver
+580.82.07) — a structural limit not tunable from userspace.** This makes the
+`max_branches ≈ 520,000 / P` model *more* useful as a deployment heuristic — it
+cannot be sysctl'ed away, only engineered around (larger allocation granularity,
+VA-pool reuse, or future driver releases). Data:
 `data/lab1_vmmap_count.csv`, summary `data/lab1_vmmap_summary.txt`, write-up
 `LAB1_NOTES.md`.
 
@@ -489,16 +519,206 @@ over APC for ordinary prefix dedup. We have **not** benchmarked against a runnin
 
 ---
 
-## What this buys you (and what it doesn't)
+## Comparison vs Software Prefix Sharing — EMPIRICAL (R4 P0-1, NEW)  [`data/baseline_compare_*.csv`]
 
-**Buys:** ~14× more concurrent agent branches per H100 (Metric 4: 6→84) at realistic divergence, by
-sharing the long common prefix's HBM at the MMU level with transparent per-page CoW and
-near-zero attention-kernel overhead. The concurrent ceiling is **predictable** — Metric 4b
-fits **max_branches ≈ 520,000 / prefix_pages** (constant to 1% across a 12× prefix sweep) —
-so a deployer can size fan-out up front. The mechanism is validated bit-identical at the
-**full 28-layer model depth** (Metric 5b R3), with the 2 MiB granularity's partial-page waste
-(54% on the boundary page) quantified honestly and still net-favorable (50% of clone traffic).
+Reviewer (gemini) attacked the original full-clone baseline as a strawman: vLLM APC and
+SGLang RadixAttention already provide zero-copy prefix sharing in software. The R2/R3
+analytic vLLM-APC discussion above is correct but not measured. R4 P0-1 closes that gap
+with a head-to-head implementation: `src/baseline_prefix_sharing.py` is a vLLM-APC-style
+block-table allocator (refcounted physical "blocks"; fork = list-copy + refcount++; write
+to shared block = block-granularity CoW). At our test sizing (Llama-3-8B-ish: 32 layers,
+8 KV-heads, 128 head_dim, bf16 → 128 KiB / token; 16-token block = 2 MiB) the **per-block
+CoW unit equals our per-page CoW unit (2 MiB)** — so the comparison is mechanism-vs-
+mechanism, not granularity-vs-granularity, on identical KV sizing.
 
-**Does not buy:** lower fork latency (linear in prefix, map-op bound) or end-to-end
-wall-time speedup vs full-clone at the sizes tested. If you are latency-bound and HBM is
-not the constraint, full-clone is just as fast.
+Bench: `bench/bench_software_baseline.py`. Three measurements:
+
+**M1. Fork latency vs prefix length.**
+
+| prefix blocks | software (vLLM-APC-style) | hardware (ForkedKV CUDA-VMM) | software wins by |
+|--------------:|--------------------------:|-----------------------------:|-----------------:|
+|             1 | 0.51 µs                   | 64.76 µs                     | 127×             |
+|             4 | 0.55 µs                   | 214.66 µs                    | 390×             |
+|            16 | 1.50 µs                   | 818.60 µs                    | 546×             |
+|            64 | 5.00 µs                   | 3,263 µs                     | 653×             |
+|           128 | 9.34 µs                   | 6,588 µs                     | 705×             |
+
+Software fork is **~700× faster** at large prefixes. The hardware path pays
+`cuMemMap`+`cuMemSetAccess` (~50 µs) per page; the software path increments a Python
+refcount per block. **Software wins fork latency, decisively.** This is not a marginal
+delta we can argue away. (Data: `data/baseline_compare_m1_fork_latency.csv`.)
+
+**M2. CoW granularity (bytes copied per single-token write into a shared prefix).**
+Both copy **2,097,152 B (one 2 MiB unit)** at our default sizing — block_bytes equals
+page_bytes. Software *can* be configured smaller (vLLM in production runs 16-token
+blocks at smaller hidden-dim models → 256 KiB CoW units, 8× finer than us). Our 2 MiB
+page is fixed by `CU_MEM_ALLOC_GRANULARITY_MINIMUM` on H100 — we cannot reduce it.
+**Tie at our test sizing; software has more room to shrink.** (Data:
+`data/baseline_compare_m2_cow_granularity.csv`.)
+
+**M3. Capacity at fixed 32-block (64 MiB) prefix.**
+
+| method                | max branches | wall time | extra host RAM | constraint |
+|-----------------------|-------------:|----------:|---------------:|-----------|
+| software (vLLM-APC)   | **100,000**  | 0.354 s   | 41 MiB         | host RAM (block_table refcounts) |
+| hardware (ForkedKV)   | ~16,250      | (modeled) | n/a            | driver mapping ceiling: K/P = 520K/32 |
+
+Software reaches 100,000 branches in 354 ms with 41 MiB host RAM (all on-GPU pool stays
+constant — fork allocates ZERO new GPU bytes, just refcounts existing blocks). Hardware
+caps at the **K/prefix_pages** ceiling we measured in Lab 1 (~16,250 at this prefix).
+**Software wins capacity by ~6× at this prefix size; the gap widens for longer prefixes.**
+(Data: `data/baseline_compare_m3_capacity.csv`. Figures:
+`figures/baseline_compare_m1_fork_latency.png`,
+`figures/baseline_compare_m3_capacity.png`.)
+
+### What survives the empirical comparison
+
+The 14× capacity headline (Metric 4: full-clone OOMs at 6 vs CoW reaches 84) was
+correct against a NAIVE baseline. Against the strong software baseline, **capacity is
+NOT our advantage** — software's refcounted block table is unbounded by GPU memory and
+nearly unbounded by host RAM. The earlier R2 analytic and Metric 4 capacity sweeps
+remain valid as characterizations of the CUDA VMM driver, but they do not buy us a
+practical capacity edge over vLLM APC. We acknowledge this directly.
+
+What survives is the **mechanism-level asymmetry on kernel compatibility**:
+
+- **ForkedKV produces a contiguous virtual address per branch.** Standard FlashAttention,
+  PyTorch SDPA, and any kernel that takes a contiguous K/V tensor work unmodified
+  (Metric 3: −0.1% to +1.1% overhead vs a non-VMM contiguous tensor across seqlen
+  512–8192). The kernel sees ordinary memory; the MMU does the sharing.
+- **Software prefix sharing requires a paged-attention kernel.** vLLM ships
+  PagedAttention precisely because its block-table allocator is incompatible with
+  contiguous-K/V kernels. Adopting APC means committing to a custom attention kernel
+  family per attention variant (FlashAttention v2/v3, MLA, GQA — each needs a paged
+  rewrite). That is a real engineering tax that we sidestep.
+- **Per-token attention has no block-table indirection.** PagedAttention pays one
+  block-table lookup per token at the kernel level. We pay zero (the page table walk
+  is the GPU MMU's hardware job, paid by every load anyway).
+
+### Honest verdict (the only differentiator that survives the strong baseline)
+
+**ForkedKV does NOT win on fork latency, does NOT win on capacity, and does NOT win on
+CoW granularity against vLLM-APC-style software prefix sharing.** What it wins is:
+*the same physical sharing, exposed to the kernel as a contiguous virtual address.*
+That is a **kernel-transparency** result, not a capacity result. The paper's
+contribution is therefore best framed as:
+
+1. The **forensic architectural characterization** of GPU VMM for branching workloads
+   (driver mapping ceiling K ≈ 520K, independence from `vm.max_map_count`,
+   `cuMemSetAccess` as the OOM call site, VA-pool reuse, partial-page waste model) —
+   useful regardless of whether anyone deploys this mechanism.
+2. **Proof that hardware page-aliasing achieves equivalent prefix sharing with zero
+   kernel modification** — i.e. you can keep FlashAttention as-is and still get
+   physical KV sharing. That is an architectural claim with practical value for
+   deployments unwilling to swap out their attention kernel.
+
+Re-positioning is honest. We are no longer claiming a practical capacity advantage
+over the SOTA software baseline; we are claiming a kernel-compatibility advantage and
+contributing a characterization of the GPU VMM substrate.
+
+---
+
+## Honest framing — what is and isn't OS-like (R4 P0-3, NEW)
+
+Earlier drafts of this writeup used the phrase "page-fault-on-write" and "OS-style CoW
+over the GPU MMU." Both phrasings overstate the analogy and we retract them.
+
+**What we actually do.** Detection of a write to a shared page is **software**: the
+KV-branch-manager checks `refcount > 1` *before* issuing the write. CUDA does not expose
+hardware write-protect faults to user-mode programs — there is no GPU equivalent of the
+x86 `#PF` we could intercept. So the "page fault" is metaphorical at best.
+
+**What is real.** The remap that follows is genuine driver/MMU-level work:
+`cuMemUnmap` + `cuMemMap` + `cuMemSetAccess` reprogram the GPU MMU's page tables for
+that one VA page. The aliasing — multiple branches' VA pages mapping to the same
+physical handle — is real hardware sharing, observable as the same value returned by
+`cuMemRetainAllocationHandle` (Metric 5c assertion). When two branches diverge, the
+handles diverge; the MMU does the indirection.
+
+**Honest claim.** What we built is: **software-mediated CoW with driver-level
+physical-page remap**. The detection is a software refcount check; the share/remap
+is hardware (GPU MMU + driver mapping table). We **deliberately do not** call this
+"page-fault-on-write" or "OS-style CoW" anywhere in this writeup or in the source
+files (R4 P0-3 globally edited the comments and prose).
+
+**Why hardware page faults aren't available, and what we get anyway.** CUDA's user-mode
+API does not surface MMU faults on writes; even Unified Memory's automatic migration
+faults are kernel-driver-mediated and not exposable as a userspace handler. So a "true
+OS-style CoW" on GPU writes is not achievable today. What our path *does* give over a
+pure software block manager (vLLM APC):
+
+- Contiguous VA per branch → unmodified attention kernels (FlashAttention, SDPA, …).
+- Physical sharing at the GPU MMU level → no per-token block-table indirection.
+- Latent path to hardware faults: if NVIDIA exposes write-protect faults in a future
+  driver, this design swaps the software refcount check for a real fault handler with
+  no other changes. We are not relying on that; we report it as a structural property.
+
+This is a narrower claim than "OS-style CoW" but it is the one that survives scrutiny.
+
+---
+
+## Workload justification — when does CoW-on-write actually fire? (R4 P0-4, NEW)
+
+A second reviewer attack: standard autoregressive decode is **append-only** to KV. The
+boundary page (the last partial-page where new tokens land) is the only place CoW can
+fire under pure append; deeper-into-the-prefix CoW writes need a workload that *mutates*
+existing KV. Honestly: which real workloads do that?
+
+**Where CoW-on-write fires for real:**
+
+1. **Speculative-decoding rollback.** Verifier rejects K speculative tokens →
+   chain has to rewind by K positions and overwrite the rejected KV slots. The
+   rejected page is shared (parent + speculator); rollback CoWs it.
+2. **Tree-of-thought / branch-and-rewind.** Agent explores branch A, evaluates,
+   discards, returns to the snapshot, explores branch B *editing* a token in
+   the shared prefix (e.g. swap a tool call). That edit is exactly Metric 5c.
+3. **Multi-turn agents that rewrite history.** Tool-call retries that
+   substitute corrected arguments, error-correction passes that rewrite a span,
+   guardrail-driven redaction of spans in long contexts. All do mid-prefix
+   writes against a shared parent.
+4. **Sliding-window / context-compression eviction.** A long context that
+   overwrites old KV with compressed summaries (e.g. Anthropic's recent
+   compression work, RecurrentGPT-style) does in-place mutation.
+5. **Reasoning models with backtracking.** o1-style chains that prune a
+   sub-trajectory and resume from an earlier partial state.
+
+Metric 5c (R2 P0-4) directly exercises pattern #2 and proves the mechanism:
+exactly one CoW fires, exactly one 2 MiB page is copied, sibling branches stay
+byte-identical. That's the smallest convincing workload.
+
+**Honest acknowledgement.** For *vanilla* batched-decode serving (chat completion
+with no edits), the dominant pattern is append-only and the CoW-on-write path
+fires only on the boundary page. In that regime our advantage shrinks to "shared
+prefix dedup" — which vLLM APC already gives, with finer granularity. The
+CoW-on-write capability is genuinely valuable for the workloads listed above
+(branchable agents, speculative decoding, mutation-heavy serving), and is
+forward-looking for the rest. We do not claim CoW-on-write is essential for
+chat-completion serving; we claim it is the right substrate for branch-and-edit
+workloads. See LIMITATIONS.md #14 (added).
+
+---
+
+
+
+**Buys (vs naive full-clone — the WORST baseline, not the strongest):** ~14× more
+concurrent agent branches per H100 (Metric 4: 6→84) at realistic divergence, by
+sharing the long common prefix's HBM at the MMU level with transparent per-page CoW
+and near-zero attention-kernel overhead. The concurrent ceiling is **predictable**
+— Metric 4b fits **max_branches ≈ 520,000 / prefix_pages** (constant to 1% across a
+12× prefix sweep) — so a deployer can size fan-out up front. The mechanism is
+validated bit-identical at the **full 28-layer model depth** (Metric 5b R3), with
+the 2 MiB granularity's partial-page waste (54% on the boundary page) quantified
+honestly and still net-favorable (50% of clone traffic).
+
+**Buys (vs strong software baseline — vLLM APC / RadixAttention):** kernel-
+transparent contiguous-VA per branch. Standard FlashAttention/SDPA work unmodified
+on a forked branch (Metric 3 ≈ 0% kernel overhead). Software prefix sharing requires
+a paged-attention kernel; we do not. That is the ONE differentiator that survives
+the strong-baseline empirical comparison (R4 P0-1).
+
+**Does not buy (against vLLM APC — be honest):** lower fork latency (R4 M1: software
+is ~700× faster), more concurrent branches (R4 M3: software handles 100K branches in
+host RAM; we cap at K/P ≈ 16,250 at a 32-page prefix), or finer CoW granularity
+(software's 16-token blocks can be 8× smaller than our 2 MiB page at small models).
+If you are latency-bound or capacity-bound and willing to maintain a custom paged-
+attention kernel, vLLM APC is the better mechanism today.
