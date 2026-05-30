@@ -723,6 +723,43 @@ host RAM; we cap at K/P ≈ 16,250 at a 32-page prefix), or finer CoW granularit
 If you are latency-bound or capacity-bound and willing to maintain a custom paged-
 attention kernel, vLLM APC is the better mechanism today.
 
+## Lab 2 — Hardware counter evidence (ncu): VMM read path is microarchitecturally transparent
+
+Metric 3 showed contiguous-VA VMM tensors and ordinary contiguous tensors have indistinguishable
+attention-kernel wall time. Lab 2 asks the harder question: does the H100 pipeline see a different
+kernel when the backing storage is CUDA-VMM-mapped?
+
+We profiled one cuDNN flash-attention SDPA kernel dispatched by PyTorch on H100:
+`cudnn_generated_fort_native_sdpa_sm90_flash_fprop_wgmma_f16_knob_7_64x128x128_4x1x1_cga1x1x1_kernel0_0`.
+The target script wraps exactly one SDPA call in `cudaProfilerStart/Stop`, and ncu collects the
+kernel counters for `seqlen=4096` in both allocation modes.
+
+| metric | contiguous | VMM | relative diff | reading |
+|---|---:|---:|---:|---|
+| kernel time | 574,768 ns | 574,976 ns | **+0.04%** | identical |
+| SM throughput | 71.765% | 71.735% | **-0.04%** | identical |
+| DRAM throughput | 8.995% | 9.005% | **+0.11%** | identical |
+| instructions executed | 1.56552976e8 | 1.565534535e8 | **+0.0003%** | effectively identical |
+| L2 hit rate | 86.95% | 82.505% | **-5.11%** | mild shift |
+| L2 device sectors | 3.862e7 | 4.081e7 | **+5.65%** | mild shift |
+| L2 peer sectors | 0 | 0 | n/a | identical |
+| L2 sysmem sectors | 3.80e4 | 3.05e4 | -19.6% | tiny absolute count |
+
+**Reading.** For the production cuDNN flash-attention kernel, H100 does not expose a meaningful
+compute-side distinction between a standard contiguous allocation and a VMM-backed contiguous-VA
+tensor. Runtime, SM utilization, DRAM throughput, and instruction count match to noise. The only
+material counter movement is a mild L2 locality shift (hit rate -5.1%, device sectors +5.7%), likely
+from physical-page placement / set hashing; it is invisible at the kernel runtime level.
+
+**What this does and does not prove.** CUDA 12.8 / driver 580 exposes no ncu metric containing
+`tlb` (`ncu --query-metrics | grep -i tlb` is empty), so Lab 2 cannot directly prove identical TLB
+walk behavior. It supports the weaker but operationally important claim: any VMM translation work is
+absorbed below the attention-kernel bottleneck for this H100 cuDNN SDPA kernel. Combined with Metric
+3's timing sweep, the read path is kernel-transparent for the measured workload.
+
+[`data/lab2_ncu_counters.csv`, `data/lab2_ncu_summary.csv`, `data/lab2_ncu_summary.txt`,
+`data/lab2_ncu_logs/`]
+
 ## Lab 3b — Production Paged Baseline (FlashInfer 0.6.12)
 
 **The Lab 3 "2.3× faster" claim does not survive against a production baseline.**

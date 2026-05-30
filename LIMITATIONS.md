@@ -151,6 +151,18 @@ Read this before trusting any number in WRITEUP.md.
     sufficient. See WRITEUP §"Workload justification — when does CoW-on-write actually
     fire?".
 
+
+18. **Lab 2 hardware-counter coverage is partial (ncu + CUDA 12.8 limitations).**
+    Lab 2 profiles one production cuDNN sm90 flash-attention SDPA kernel at `seqlen=4096` and
+    shows kernel time, SM throughput, DRAM throughput, and instruction count are effectively
+    identical for contiguous vs VMM-backed contiguous-VA tensors. However, CUDA 12.8 / driver
+    580 exposes no direct TLB metric (`ncu --query-metrics | grep -i tlb` is empty), so the
+    claim is supported through downstream pipeline counters rather than a direct TLB-walk
+    counter. ncu replay also hangs on the VMM case for sub-200 µs kernels (`seqlen=2048` in
+    this harness), so the committed CSV has clean VMM data for `seqlen=4096` only. Finally,
+    only the cuDNN sm90 flash-attention kernel dispatched by PyTorch SDPA was profiled; other
+    kernels / architectures remain future work.
+
 ## Reproducibility caveats
 
 11. **N replications vary by metric.** M1: n=10; M3: n=50 (interleaved+median); B5/B8: n=300;
