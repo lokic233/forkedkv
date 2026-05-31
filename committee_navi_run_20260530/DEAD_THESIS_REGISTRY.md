@@ -23,3 +23,9 @@
   Measured backbone real (pre-RoPE KV bit-identical at L0, context-mix divergence to L27) but only
   1/28 layers reusable within tol -> 0.054% prefill-FLOP saving ceiling at 1.5% real incidence
   (<< 2% KILL bar). L0 exactness partly a RoPE tautology. Clean negative result, self-gated.
+
+- T5 "Error-class predicts agent recovery competence": R14 0G/5Y/1K. Honest ~3x repeat-rate spread
+  but thin (single harness, ~200 errors, no intervention, crowded field). Two sub-claims self-killed
+  by parsing audits (strong 46.8% signal was classification artifact; "spirals" angle = 0.2%
+  negligible). YELLOW characterization, not GREEN. GREEN needs cross-harness + intervention A/B
+  (blocked: no other-harness traces on disk, needs live runs).

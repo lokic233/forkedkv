@@ -1,0 +1,2 @@
+T5: YELLOW — Honest, corrected 3x spread (path_missing 18.6% vs 6.1% baseline) is a real bounded characterization, but rests on ~200 well-classified errors, one harness, one agent family, no intervention, in a crowded field — descriptive only.
+Confirming experiment to gate GREEN: replicate the class→repeat signal on a 2nd harness/agent family AND show an error-class-aware reformatting intervention cuts the path_missing repeat-rate; survives → GREEN, fails to replicate → KILL.

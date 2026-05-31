@@ -159,3 +159,15 @@ GREEN-gate experiment: measure end-to-end prefill FLOPs/latency saved by shallow
 real repeats vs recompute -> GREEN if >=10% saved at matched quality, KILL if <2%.
 DECISION: run the gate experiment (E9) before any GREEN claim. Predicted to fail (incidence x
 shallow-only bound), but measure don't assume.
+
+## ROUND 14 — candidate T5 "error-class predicts agent recovery" (failure-attribution, E10)
+| T5 | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally | STATUS |
+|----|-----|-----|-----|-------|------|--------|-------|--------|
+|    | YELLOW | YELLOW | YELLOW | YELLOW | YELLOW | KILL | 0G/5Y/1K | NOT GREEN |
+Honest ~3x error-class repeat-rate spread (path_missing 18.6% vs other 6.1%) on 6,510 real calls.
+All agents: real but THIN bounded characterization; single harness/family, ~200 well-classified
+errors, no intervention, crowded reflexion/self-debug prior art. Self-disclosed 2 parsing bugs
+(46.8%->18.6% classification artifact; "178 spirals"->10 redundant = 0.2%, negligible) earned trust
+but the signal shrank under scrutiny. GREEN-gate (47+46, identical): (1) cross-harness replication
+(OpenHands/SWE-agent/Cursor) + (2) error-class-aware reformatting A/B cutting repeat-rate >=50%.
+BLOCKED today: needs other-harness traces (not on disk) + live A/B runs. Not closeable H100-only.
