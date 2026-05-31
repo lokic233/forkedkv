@@ -117,3 +117,21 @@ Both YELLOWs (4.8, codex) gated on TWO precise copy-fixes: (1) 13.63x is E_prepe
 |          | GREEN | GREEN | GREEN | GREEN | GREEN | GREEN | **6G/0Y/0R** | **GREEN (UNANIMOUS)** |
 
 === FIRST UNANIMOUS GREEN THESIS REACHED ===
+
+## ROUND 10 — E5 self-hostile test of the GREEN (real-trace incidence)
+| T2 + E5 | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally |
+|---------|-----|-----|-----|-------|------|--------|-------|
+|         | GREEN | YELLOW | GREEN | YELLOW | GREEN | GREEN | 4G/2Y |
+E5 (325 real Claude Code sessions): ~99.9% APPEND (free), ~0.1% RESET, 0% INTERIOR -> the 8-13x
+pathology has ~0% incidence in mainstream append-only harnesses. The GREEN BROKE. YELLOWs (4.7,
+codex): must reframe from "workload-model thesis" to "conditional cost-map / design-constraint"
+with ~0% incidence stated UP FRONT, no broad-impact claim.
+
+## ROUND 11 — FINAL: reframed to conditional cost-map, ~0% incidence as headline sentence.
+| T2-FINAL | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally | STATUS |
+|----------|-----|-----|-----|-------|------|--------|-------|--------|
+|          | GREEN | GREEN | GREEN | GREEN | GREEN | GREEN | **6G/0Y/0R** | **GREEN (UNANIMOUS, E5-SURVIVED)** |
+
+=== T2 is GREEN as a CONDITIONAL ARCHITECTURAL COST-MAP + DESIGN CONSTRAINT (negative-result style) ===
+The thesis survived its own incidence audit by narrowing to exactly what 5 experiments measured and
+leading with the honest ~0% current-harness incidence. No overclaim survives.

@@ -1,0 +1,1 @@
+YELLOW — Characterization is sound and measured, but with ~0% incidence in mainstream harnesses T2 is a cost map for a latent pathology; GREEN requires either evidence interior-mutating harnesses are emerging/valuable, or reframing as "conditional cost model + design constraint for future harnesses" with the ~0% incidence reported up-front, not as a footnote.

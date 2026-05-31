@@ -1,0 +1,1 @@
+T2: **GREEN** — Positioning now matches evidence exactly: measured cost-map with real engine numbers, structural explanation grounded in E4b, and activation conditions framed as design constraints not predictions — all anchored by the ~0% current-incidence lead sentence. No overclaim remains.

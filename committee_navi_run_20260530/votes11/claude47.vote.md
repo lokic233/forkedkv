@@ -1,0 +1,1 @@
+T2: GREEN — Headline ~0% incidence + measured cost-map (E3/E2) + mechanism (E4b) + patterns as design-time warnings (not prevalence claims) matches evidence with no overclaim; negative-result/MLSys framing is honest.

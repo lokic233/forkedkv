@@ -39,3 +39,19 @@ R8 narrowed -> 4G/2Y on 2 copy-fixes. R9 fixes applied -> 6G/0Y/0R UNANIMOUS.
 ## NEXT (real future work, not vote-rounds):
 E5: generate real agent trajectories (SWE-agent/OpenHands) -> measure edit-class FREQUENCY (sizes
 T2's real-world impact) AND per-step KV divergence distribution (could move T3 toward GREEN).
+
+## UPDATE (post-E5, Rounds 10-11): GREEN re-confirmed after self-administered incidence audit.
+E5 (325 real Claude Code agent sessions, 12,380 turns): mid-prompt invalidation has ~0% incidence
+in mainstream APPEND-ONLY harnesses (99.9% append=free, 0.1% compaction-reset, 0% interior splice).
+This BROKE the R9 GREEN (R10: 4G/2Y). T2 was reframed (R11) to a CONDITIONAL ARCHITECTURAL COST-MAP
++ DESIGN CONSTRAINT, with the ~0% current incidence as the HEADLINE sentence and explicit non-claims
+on prevalence/impact/emergence. R11: 6/6 GREEN.
+
+FINAL HONEST T2 = a measured cost map (append free / interior 1.3-8.2x / prepend 13.6x / cross-engine
+8-13x) + structural impossibility-of-cheap-interior-repair (E4b) + an ACTIVATION CONDITION (binds iff
+a harness interior-mutates: scratchpads, RAG reorder, shared-context editing, rollback). It is a
+negative-result / design-constraint contribution, NOT a "widespread crisis" claim. Venue: MLSys.
+
+This is the strongest possible HONEST outcome: a thesis that survived 11 rounds, 5 experiments, a
+caught correctness bug, a primitive collapse, AND its own real-world incidence audit — by claiming
+exactly, and only, what the data supports.
