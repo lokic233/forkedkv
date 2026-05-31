@@ -18,3 +18,8 @@
   Token-prefix sharing predicts KV sharing; RadixAttention already captures the opportunity. Surviving
   form (token-prefix-shared distribution) is the trivial 1-(divergence) stat both R3 YELLOWs flagged.
   Self-caught overclaim: the experiment killed the thesis before it reached a vote as a finding.
+
+- T4 "Layer-stratified positional KV reusability": R13 0G/4Y/1R/1K; E9 gate experiment KILLED it.
+  Measured backbone real (pre-RoPE KV bit-identical at L0, context-mix divergence to L27) but only
+  1/28 layers reusable within tol -> 0.054% prefill-FLOP saving ceiling at 1.5% real incidence
+  (<< 2% KILL bar). L0 exactness partly a RoPE tautology. Clean negative result, self-gated.

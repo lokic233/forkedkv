@@ -1,0 +1,3 @@
+T4: **RED** — The headline "exactness" is a RoPE tautology (pre-RoPE projections at L0 are position-independent by construction, not a finding), and your own measurements refute the mechanism opportunity: reuse is exact only at shallow layers where almost no FLOPs live, while the deep layers that dominate compute diverge irrecoverably — so there is no defensible compute win, and low incidence (1.5%) + position-independent/blended KV prior art remove what's left.
+
+(Not KILL only because the layer-resolved divergence curve is a real, if minor, measurement; if you want to fight to YELLOW, the named experiment is an end-to-end FLOP/accuracy ablation reusing shallow-layer KV up to layer L* and recomputing above it — but I expect the savings to be negligible.)

@@ -1,0 +1,10 @@
+<frozen importlib._bootstrap_external>:1304: FutureWarning: The cuda.cuda module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.driver module instead.
+Same 48-token chunk at pos 100 and pos 548 (gap 448). KV difference per layer:
+| layer | max|dK| (K is RoPE'd) | max|dV| (V is NOT RoPE'd) |
+| 0 | 11.578 | 0.0000 |
+| 1 | 23.688 | 0.3481 |
+| 7 | 9.898 | 4.3906 |
+| 14 | 8.641 | 3.3086 |
+| 21 | 8.172 | 6.5859 |
+| 27 | 9.586 | 16.6406 |
+DONE

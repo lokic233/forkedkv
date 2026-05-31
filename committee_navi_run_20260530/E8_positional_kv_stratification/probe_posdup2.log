@@ -1,0 +1,13 @@
+<frozen importlib._bootstrap_external>:1304: FutureWarning: The cuda.cuda module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.driver module instead.
+Same chunk at 2 positions, 8 trials. PRE-RoPE K and V divergence (median):
+| layer | max|dK_preRoPE| | max|dV| |  (layer0=pure token identity, depth=context mixing)
+| 0 | 0.0000 | 0.0000 |
+| 1 | 0.9302 | 0.2648 |
+| 2 | 3.1445 | 0.9065 |
+| 3 | 1.5547 | 1.1079 |
+| 5 | 6.1523 | 2.4248 |
+| 9 | 4.1250 | 3.5830 |
+| 15 | 5.3184 | 4.0117 |
+| 21 | 5.9902 | 6.2461 |
+| 27 | 6.4375 | 15.5977 |
+DONE

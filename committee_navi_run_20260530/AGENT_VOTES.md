@@ -146,3 +146,16 @@ fp16 SDPA kernel nondeterminism, NOT semantic divergence. With the artifact cont
 sharing PREDICTS KV sharing -> RadixAttention already captures the opportunity -> T3's only
 differentiator is dead. Committee unanimously retired T3 rather than launder the trivial
 1-(tail/total) form into a YELLOW. NEGATIVE RESULT, honestly reported.
+
+## ROUND 13 — NEW thesis T4 "layer-stratified positional KV reusability" (measured backbone E8)
+| T4 | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally | STATUS |
+|----|-----|-----|-----|-------|------|--------|-------|--------|
+|    | RED | YELLOW | YELLOW | YELLOW | YELLOW | KILL | 0G/4Y/1R/1K | NOT GREEN |
+Measurement (E8) is clean + acknowledged real by all. But weaknesses compound fatally:
+~1.5% real exact-repeat incidence (E5) x exact-reuse confined to ~1-2 of 28 shallow layers (least
+FLOPs) => savings ceiling near-zero (gemini). 4.8: L0 exactness is partly a RoPE tautology
+(pre-RoPE projections position-independent by construction). Two agents (47,46) gave the SAME
+GREEN-gate experiment: measure end-to-end prefill FLOPs/latency saved by shallow-layer KV reuse for
+real repeats vs recompute -> GREEN if >=10% saved at matched quality, KILL if <2%.
+DECISION: run the gate experiment (E9) before any GREEN claim. Predicted to fail (incidence x
+shallow-only bound), but measure don't assume.

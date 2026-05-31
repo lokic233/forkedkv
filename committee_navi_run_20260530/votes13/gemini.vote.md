@@ -1,0 +1,1 @@
+T4: KILL — Weaknesses 1 and 2 are jointly fatal: multiplying a 1.5% exact-repeat incidence by the ability to reuse/skip only 1-2 out of 28 shallow layers mathematically bounds any systemic compute or memory savings to near-zero.

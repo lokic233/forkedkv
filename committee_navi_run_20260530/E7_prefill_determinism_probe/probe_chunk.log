@@ -1,0 +1,4 @@
+<frozen importlib._bootstrap_external>:1304: FutureWarning: The cuda.cuda module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.driver module instead.
+chunked-vs-single prefill: next-token argmax FLIPS = 0/60
+median top1-top2 logit margin: 0.582
+DONE_CHUNK
