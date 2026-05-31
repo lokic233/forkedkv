@@ -171,3 +171,13 @@ errors, no intervention, crowded reflexion/self-debug prior art. Self-disclosed 
 but the signal shrank under scrutiny. GREEN-gate (47+46, identical): (1) cross-harness replication
 (OpenHands/SWE-agent/Cursor) + (2) error-class-aware reformatting A/B cutting repeat-rate >=50%.
 BLOCKED today: needs other-harness traces (not on disk) + live A/B runs. Not closeable H100-only.
+
+## T5 GREEN-GATE ATTEMPTED (E11 cross-harness + E12 intervention A/B) — BOTH FELL SHORT.
+- E11 (codex traces = 2nd harness/family): only 9 errors/208 calls (codex error rate 4.3% vs CC
+  13.2%) -> UNDERPOWERED, can't confirm class->repeat on a 2nd harness from on-disk traces.
+- E12 (intervention A/B, live claude agent): first cut showed control 0/20 vs treatment 20/20
+  (+100pts) -> looked like a GREEN-clinching intervention. E12b HARDENED CONTROL (added cwd +
+  realistic layout) showed control recovers 8/8 ON ITS OWN -> the win was a TOY-SETUP ARTIFACT
+  (impoverished control). Effect collapses under a fair baseline.
+=> Neither gate half holds. T5 remains YELLOW, NOT promoted. Discipline: the impressive 0->100%
+   was self-audited and retracted before any GREEN claim. (Self-caught overclaim #3 this session.)

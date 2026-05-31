@@ -1,0 +1,25 @@
+trial 0: control=adapt(/tmp/e12_0_45rroibm/source)  treatment=adapt(/tmp/e12_0_45rroibm/src/app.py)
+trial 1: control=adapt(/tmp/e12_1_ansblhhb/source/)  treatment=adapt(/tmp/e12_1_ansblhhb/src/app.py)
+trial 2: control=adapt(/tmp/e12_2_uz3zee3u/source)  treatment=adapt(/tmp/e12_2_uz3zee3u/src/app.py)
+trial 3: control=adapt(/tmp/e12_3_i53cmzk0/source/)  treatment=adapt(/tmp/e12_3_i53cmzk0/src/app.py)
+trial 4: control=adapt(/tmp/e12_4_k8i6kamq/source)  treatment=adapt(/tmp/e12_4_k8i6kamq/src/app.py)
+trial 5: control=adapt(/tmp/e12_5_zg33spaf/source)  treatment=adapt(/tmp/e12_5_zg33spaf/src/app.py)
+trial 6: control=adapt(/tmp/e12_6_wov0ueq0/source/)  treatment=adapt(/tmp/e12_6_wov0ueq0/src/app.py)
+trial 7: control=adapt(/tmp/e12_7_ivd48au_/source/)  treatment=adapt(/tmp/e12_7_ivd48au_/src/app.py)
+trial 8: control=adapt(/tmp/e12_8_07fht6h1/source)  treatment=adapt(/tmp/e12_8_07fht6h1/src/app.py)
+trial 9: control=adapt(/tmp/e12_9_xn34yw94/source)  treatment=adapt(/tmp/e12_9_xn34yw94/src/app.py)
+trial 10: control=adapt(/tmp/e12_10_245u0ptk/source)  treatment=adapt(/tmp/e12_10_245u0ptk/src/app.py)
+trial 11: control=adapt(/tmp/e12_11_yt3ienv4/source)  treatment=adapt(/tmp/e12_11_yt3ienv4/src/app.py)
+trial 12: control=adapt(/tmp/e12_12_c1eotfas/source)  treatment=adapt(/tmp/e12_12_c1eotfas/src/app.py)
+trial 13: control=adapt(/tmp/e12_13_j9m8racu/source)  treatment=adapt(/tmp/e12_13_j9m8racu/src/app.py)
+trial 14: control=adapt(/tmp/e12_14_rtzb02_r/source)  treatment=adapt(/tmp/e12_14_rtzb02_r/src/app.py)
+trial 15: control=adapt(/tmp/e12_15_aoc4lsdx/source)  treatment=adapt(/tmp/e12_15_aoc4lsdx/src/app.py)
+trial 16: control=adapt(/tmp/e12_16_5h8s6bls/source/)  treatment=adapt(/tmp/e12_16_5h8s6bls/src/app.py)
+trial 17: control=adapt(/tmp/e12_17_w87vy3uq/source)  treatment=adapt(/tmp/e12_17_w87vy3uq/src/app.py)
+trial 18: control=adapt(/tmp/e12_18_083urgnj/source/)  treatment=adapt(/tmp/e12_18_083urgnj/src/app.py)
+trial 19: control=adapt(/tmp/e12_19_1lwr7md0/source)  treatment=adapt(/tmp/e12_19_1lwr7md0/src/app.py)
+
+=== E12 RESULT ===
+control    repeat=0 adapt=20 noparse=0  repeat%=0%
+treatment  repeat=0 adapt=20 noparse=0  repeat%=0%
+ALLDONE
