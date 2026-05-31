@@ -1,0 +1,1 @@
+T3: **KILL** — E6's control demolished the core claim: KV-sharing tracks token-sharing, so the "non-trivial KV-divergence structure distinct from RadixAttention" doesn't exist. The only survivor is the token-prefix distribution itself, which is exactly the "trivial 1-(tail/total)" Muse Park flagged — not a thesis, just a measurement.

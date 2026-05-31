@@ -1,0 +1,1 @@
+T3: KILL — E6's control proved the only non-trivial claim (KV-share < token-share) was an fp16 kernel artifact; with that gone, T3 reduces to RadixAttention + a tautological 1−divergence stat, which is exactly what Muse Park flagged and not a defensible contribution.

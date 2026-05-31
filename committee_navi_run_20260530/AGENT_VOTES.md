@@ -135,3 +135,14 @@ with ~0% incidence stated UP FRONT, no broad-impact claim.
 === T2 is GREEN as a CONDITIONAL ARCHITECTURAL COST-MAP + DESIGN CONSTRAINT (negative-result style) ===
 The thesis survived its own incidence audit by narrowing to exactly what 5 experiments measured and
 leading with the honest ~0% current-harness incidence. No overclaim survives.
+
+## ROUND 12 — T3 disposition after E6 (which FALSIFIED T3's intended angle)
+| T3 + E6 | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally | STATUS |
+|---------|-----|-----|-----|-------|------|--------|-------|--------|
+|         | KILL | KILL | KILL | KILL | KILL | KILL | **6/6 KILL** | **RETIRED** |
+E6 built to answer T3's YELLOWs (does token-share overstate KV-share?). A discipline CONTROL
+(identical 207-tok prefix, prefix-only vs prefix+800) showed max|dK| up to 6.25e-2 >> 5e-3 tol =
+fp16 SDPA kernel nondeterminism, NOT semantic divergence. With the artifact controlled, token-prefix
+sharing PREDICTS KV sharing -> RadixAttention already captures the opportunity -> T3's only
+differentiator is dead. Committee unanimously retired T3 rather than launder the trivial
+1-(tail/total) form into a YELLOW. NEGATIVE RESULT, honestly reported.

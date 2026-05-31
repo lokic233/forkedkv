@@ -11,3 +11,10 @@
 - (Pre-existing, from prior repo committee — NOT re-proposed): Determinism Bisect, AgentTraceStore,
   LSM-for-Agents, agent partial-progress checkpoint protocol (RED: anticipated by Anthropic 2025
   harness + LangGraph/CrewAI), AgentMQ.
+
+- T3 "Agentic KV-divergence workload model": 6/6 KILL (R12). E6 falsified the core differentiator —
+  a control experiment proved the apparent KV-vs-token divergence was fp16 SDPA kernel nondeterminism
+  (identical prefix -> max|dK| 6.25e-2 >> 5e-3 tol at different seq lengths), not semantic divergence.
+  Token-prefix sharing predicts KV sharing; RadixAttention already captures the opportunity. Surviving
+  form (token-prefix-shared distribution) is the trivial 1-(divergence) stat both R3 YELLOWs flagged.
+  Self-caught overclaim: the experiment killed the thesis before it reached a vote as a finding.
