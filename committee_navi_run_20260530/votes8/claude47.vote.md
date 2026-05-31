@@ -1,0 +1,1 @@
+T2: GREEN — Claim now matches evidence: taxonomy numbers (0.90/1.31-2.38/2.99-13.63x) are direct E3 measurements, 8-13x cross-engine penalty is E2-grounded, and the "not cheaply repairable at KV level" is properly scoped to pointer-swap (E4b max|dK|=4.04 at layers≥1) rather than overclaiming general impossibility; no runtime-primitive claim survives.

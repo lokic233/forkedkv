@@ -1,0 +1,1 @@
+T2: GREEN — Corrections land: 13.63x correctly separated as prepend class, interior var-len capped at 8.21x, and "impossibility" properly downgraded to empirical quantification of the known causal-attention/append-only constraint. Claim now matches measured evidence with no overreach.

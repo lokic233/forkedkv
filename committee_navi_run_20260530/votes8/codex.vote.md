@@ -1,0 +1,1 @@
+T2: YELLOW — Mostly honest, but “impossibility result” still overclaims beyond measured Qwen/SGLang/vLLM evidence; call it empirical KV-level irreparability of pointer-swap interior repair in tested transformer stacks.

@@ -1,0 +1,1 @@
+T2: GREEN — The required corrections have been successfully applied; the empirical quantification and per-class taxonomy are now accurately scoped to the measured evidence without overclaiming impossibility.

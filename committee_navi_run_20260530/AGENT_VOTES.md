@@ -103,3 +103,17 @@ prefix-caching engine ALREADY handles pure terminal append cheaply. So the termi
 NOT a novel primitive over RadixAttention. The honest consequence: T2's RUNTIME-PRIMITIVE half
 collapses to "what RadixAttention already does"; only the WORKLOAD-MODEL half (E2/E3 pathology +
 edit-cost taxonomy) is a defensible novel contribution.
+
+## ROUND 8 — T2 NARROWED (runtime-primitive WITHDRAWN, full-trace disclosure incl. self-defeating data)
+| T2-narrowed | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally |
+|-------------|-----|-----|-----|-------|------|--------|-------|
+|             | YELLOW | GREEN | GREEN | YELLOW | GREEN | GREEN | 4G/2Y |
+Both YELLOWs (4.8, codex) gated on TWO precise copy-fixes: (1) 13.63x is E_prepend, not interior
+(conflated); (2) "impossibility" overclaims -> "empirical quantification of known constraint."
+
+## ROUND 9 — FINAL: both corrections applied verbatim.
+| T2-FINAL | 4.8 | 4.7 | 4.6 | codex | muse | gemini | Tally | STATUS |
+|----------|-----|-----|-----|-------|------|--------|-------|--------|
+|          | GREEN | GREEN | GREEN | GREEN | GREEN | GREEN | **6G/0Y/0R** | **GREEN (UNANIMOUS)** |
+
+=== FIRST UNANIMOUS GREEN THESIS REACHED ===

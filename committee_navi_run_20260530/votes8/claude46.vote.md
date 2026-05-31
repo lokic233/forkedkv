@@ -1,0 +1,1 @@
+T2: **GREEN** — Claim now matches evidence exactly: the penalty taxonomy is measured (E2/E3), the impossibility result is confirmed (E4b), the runtime-primitive is correctly withdrawn, and append-is-free honestly concedes to existing prefix caching. No overreach remains.

@@ -1,0 +1,2 @@
+T2: **GREEN** — Both R8 corrections applied verbatim: 13.63x prepend is now broken out as a separate most-extreme class (interior var-len capped at 8.21x), and the impossibility overclaim is downgraded to empirical quantification of the known causal-attention constraint (E4b, suffix |dK|≤4.04 at L≥1).
+Every quantitative claim maps to a measured experiment, runtime-primitive is explicitly disclaimed, and edit-class frequency is honestly deferred to future work — zero overreach remaining.
