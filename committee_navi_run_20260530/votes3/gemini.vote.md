@@ -1,0 +1,3 @@
+T1: GREEN — Treating a driver-level mapping limit as a fundamental resource borders on artifact-chasing, but mapping it into a predictive scheduler for VMM-KV systems is a valid, fundable systems contribution.
+T2: GREEN — The repair primitive is trivial pointer-juggling and likely useless if the RoPE-invariant fraction is tiny, but cleanly quantifying the edit taxonomy and the addressable fraction is a defensible empirical result.
+T3: GREEN — Agent frameworks evolve rapidly, making static workload parameters brittle, but establishing divergence-distribution metrics and a predictive sharing-opportunity model is a standard, valid workload characterization.

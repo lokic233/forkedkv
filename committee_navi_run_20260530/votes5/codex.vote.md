@@ -1,0 +1,1 @@
+T2: YELLOW — E3 kills the vacuity objection, but trace incidence and an implemented/measured VMM remap repair are still missing; cost taxonomy alone doesn’t validate the workload-model + runtime-primitive thesis.

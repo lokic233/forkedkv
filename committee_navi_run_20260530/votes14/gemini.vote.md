@@ -1,0 +1,1 @@
+T5: KILL — The remaining 3x effect rests on a small, single-harness subset where "other" dominates (72%), making this bounded observation too marginal for a crowded self-debugging literature without cross-harness validation or interventions.

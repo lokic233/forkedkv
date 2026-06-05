@@ -1,0 +1,14 @@
+<frozen importlib._bootstrap_external>:1304: FutureWarning: The cuda.cuda module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.driver module instead.
+
+=== E4 RESULT (real Qwen2.5-7B layer-0, batched, pointer-stable repair) ===
+W=64 (fixed-width slot) trials=30
+|   S | OFF | slot% | B recompute (ms) | C repair (ms) | C/B | speedup | correct |
+|-----|-----|-------|------------------|---------------|-----|---------|---------|
+|  2048 | 1024 |  3.1% |            0.696 |         0.386 | 0.554 |    1.8x | True |
+|  4096 | 2048 |  1.6% |            1.068 |         0.382 | 0.358 |    2.8x | True |
+|  8192 | 4096 |  0.8% |            1.917 |         0.381 | 0.199 |    5.0x | True |
+| 16384 | 8192 |  0.4% |            3.712 |         0.380 | 0.102 |    9.8x | True |
+| 32768 | 16384 |  0.2% |            7.170 |         0.382 | 0.053 |   18.8x | True |
+
+At largest S=32768: stock recompute 7.17ms vs repair 0.38ms = 18.8x faster, correct_all=True
+SUCCESS_BAR (C/B<0.5 at largest S AND correct at every S): True

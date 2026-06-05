@@ -1,0 +1,1 @@
+T2: GREEN — E4 closes the loop: the repair is built, bit-exact vs full recompute, pointer-stable, and its speedup scales with context (18.8x@32K) exactly as the pathology predicts; real-trace incidence is legitimate scoped future work, not a thesis-killer.

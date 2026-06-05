@@ -1,0 +1,1 @@
+T2: GREEN — The characterization remains highly valuable as a mapping of a fundamental architectural constraint; honestly reporting the ~0% current incidence transforms the contribution from a "widespread crisis" into a rigorous quantification of the severe penalty that dictates why future harnesses (or non-append patterns) will hit a performance cliff.

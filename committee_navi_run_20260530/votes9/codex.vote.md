@@ -1,0 +1,1 @@
+T2: GREEN — The corrected claim matches the measured evidence and no longer overclaims impossibility; prepend is separated, and the KV result is framed as empirical quantification of the known append-only constraint.

@@ -1,0 +1,1 @@
+T2: GREEN — The reframing matches the evidence: current incidence is ~0% up front, claims are limited to measured KV-cache cost classes plus a conditional activation constraint, with no active-impact or adoption overclaim.

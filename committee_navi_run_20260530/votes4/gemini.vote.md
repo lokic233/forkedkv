@@ -1,0 +1,1 @@
+T2: YELLOW — E2 empirically validates the cache-invalidation pathology, but Muse Park's second critique remains fatal: variable-length tool injections break RoPE invariance, rendering the proposed VMM repair primitive practically vacuous for real workloads.

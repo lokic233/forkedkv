@@ -1,0 +1,3 @@
+
+
+**T2: GREEN** — The characterization is correct, novel, and scoped: it maps the architectural cost surface (append free, interior 8-13x, reset full-miss) and identifies the structural reason (prefix-hash invalidation). E5 doesn't refute the mechanism — it localizes its current incidence. Report both: "interior edits carry 8-13x TTFT penalty; today's append-only harnesses avoid it by construction; the cost activates when harnesses adopt interior mutation (scratchpads, RAG reorder, shared-context editing)." That's a well-scoped contribution — an architectural cost map with a clearly stated activation condition, not an impact claim.

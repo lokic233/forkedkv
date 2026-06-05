@@ -1,0 +1,1 @@
+T2: GREEN — E2 falsifies the "vLLM-bug" RED by reproducing the pathology on SGLang/RadixAttention with monotonic context-scaling up to 12.77x, establishing the architectural workload-model; the repair primitive remains honestly scoped as RoPE-invariant-subclass + single-engine-validated future work, which is acceptable for an MLSys workload+primitive contribution.

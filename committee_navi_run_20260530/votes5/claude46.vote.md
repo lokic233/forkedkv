@@ -1,0 +1,1 @@
+T2: **GREEN** — E3 kills the vacuous-subclass flaw: invariant costs (0.9–2.4×) cleanly separate from shifting costs (3–14×) cross-model, confirming the repair target is real; remaining gaps (no repair prototype latency, no trajectory-frequency census) are camera-ready future work, not thesis-level threats.

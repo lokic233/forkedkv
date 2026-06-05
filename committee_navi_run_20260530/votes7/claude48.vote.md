@@ -1,0 +1,1 @@
+T2: YELLOW — Mechanism is now correct (terminal/append reuse IS exact), but that case is just standard prefix-KV incremental prefill; the 5.4-81.6x is measured vs full-prefix recompute, a strawman no production engine runs for an append. Prove the speedup holds against an engine that already does prefix caching, else only the E2/E3 workload characterization survives.

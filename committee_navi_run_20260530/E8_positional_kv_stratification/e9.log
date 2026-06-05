@@ -1,0 +1,5 @@
+<frozen importlib._bootstrap_external>:1304: FutureWarning: The cuda.cuda module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.driver module instead.
+eps=0.01: reusable contiguous shallow layers (median) = 1.0/28 (4% of layers) -> max prefill-FLOP saving ceiling at 1.5% incidence = 0.054%
+eps=0.05: reusable contiguous shallow layers (median) = 1.0/28 (4% of layers) -> max prefill-FLOP saving ceiling at 1.5% incidence = 0.054%
+eps=0.10: reusable contiguous shallow layers (median) = 1.0/28 (4% of layers) -> max prefill-FLOP saving ceiling at 1.5% incidence = 0.054%
+DONE

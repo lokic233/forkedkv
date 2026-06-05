@@ -1,0 +1,1 @@
+T2: GREEN — You finally stopped fighting causal attention; restricting exact repair to terminal appends aligns the claim with reality, and E4c proves the promised O(1) overhead is both real and exact for agentic tool injection.

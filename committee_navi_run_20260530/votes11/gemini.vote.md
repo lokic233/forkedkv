@@ -1,0 +1,1 @@
+T2: GREEN — The reframing perfectly aligns with the measured evidence; placing the ~0% incidence upfront correctly scopes the contribution as a latent cost-map and design constraint without overclaiming impact.

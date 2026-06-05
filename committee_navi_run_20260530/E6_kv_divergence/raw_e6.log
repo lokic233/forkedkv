@@ -1,0 +1,18 @@
+<frozen importlib._bootstrap_external>:1304: FutureWarning: The cuda.cuda module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.driver module instead.
+E6: 12 real agent branch pairs, Qwen2.5-7B 6 layers, max 1024 tok, tol 0.005
+| pair | Ltok (token-shared) | Lkv@L0 | Lkv@Lmid | Lkv@Llast | KVshare/tokshare@last |
+|---|---|---|---|---|---|
+| 0 | 228 | 228 | 228 | 228 | 1.000 |
+| 1 | 228 | 228 | 228 | 228 | 1.000 |
+| 2 | 120 | 120 | 120 | 120 | 1.000 |
+| 3 | 1024 | 1024 | 1024 | 1024 | 1.000 |
+| 4 | 37 | 37 | 37 | 37 | 1.000 |
+| 5 | 1022 | 1022 | 1022 | 1022 | 1.000 |
+| 6 | 1022 | 1022 | 1022 | 1022 | 1.000 |
+| 7 | 1023 | 1023 | 1023 | 1023 | 1.000 |
+| 8 | 20 | 20 | 0 | 1 | 0.050 |
+| 9 | 207 | 207 | 0 | 1 | 0.005 |
+| 10 | 20 | 20 | 3 | 1 | 0.050 |
+| 11 | 48 | 48 | 48 | 48 | 1.000 |
+
+median KVshare/tokshare at last layer: 1.000  (1.0 = token-share fully predicts KV-share; <1 = token-share OVERSTATES reusable KV)

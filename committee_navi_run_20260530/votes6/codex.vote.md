@@ -1,0 +1,1 @@
+T2: RED — E4 only proves layer-0 slot K/V equality; in a full causal transformer, any changed mid-prefix slot changes suffix hidden states and thus suffix K/V in layers >0, so pointer-stable suffix reuse is not exact unless the slot is terminal/no suffix.

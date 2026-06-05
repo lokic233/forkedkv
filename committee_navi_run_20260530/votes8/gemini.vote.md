@@ -1,0 +1,1 @@
+T2: GREEN — The narrowed claim perfectly bounds the contribution to exactly what was empirically verified: the cost taxonomy, context-scaling pathology, and the multi-layer impossibility result for interior repair.

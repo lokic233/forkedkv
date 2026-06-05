@@ -1,0 +1,1 @@
+T3: KILL — E6 falsifies the non-trivial KV-vs-token divergence claim; the survivor is only token-prefix fraction distribution, which is descriptive and already the trivial characterization flagged by the YELLOW reviews.
